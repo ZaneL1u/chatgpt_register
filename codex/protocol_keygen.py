@@ -35,27 +35,27 @@ OpenAI 协议注册机 (Protocol Keygen) v5 — 全流程纯 HTTP 实现
   pip install requests
 """
 
+import base64
+import hashlib
 import json
+import math
 import os
+import random
 import re
+import secrets
+import string
 import sys
+import threading
 import time
 import uuid
-import math
-import random
-import string
-import secrets
-import hashlib
-import base64
-import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone, timedelta
-from urllib.parse import urlparse, parse_qs, urlencode, quote
+from datetime import datetime, timedelta, timezone
+from urllib.parse import parse_qs, quote, urlencode, urlparse
 
 import requests
+import urllib3
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -330,7 +330,7 @@ class SentinelTokenGenerator:
           [18] performance.timeOrigin               → 时间起点
         """
         # 模拟真实的浏览器环境数据
-        screen_info = f"1920x1080"
+        screen_info = "1920x1080"
         now = datetime.now(timezone.utc)
         # 格式化为 JS Date.toString() 格式
         date_str = now.strftime("%a %b %d %Y %H:%M:%S GMT+0000 (Coordinated Universal Time)")
@@ -1547,7 +1547,7 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
                                     if auth_code:
                                         print(f"  ✅ 跟踪获取到 code（长度: {len(auth_code)}）")
                         else:
-                            print(f"  ⚠️ 未找到 org_id，尝试直接跟踪 consent URL...")
+                            print("  ⚠️ 未找到 org_id，尝试直接跟踪 consent URL...")
                             auth_code = _follow_and_extract_code(session, org_url)
                             if auth_code:
                                 print(f"  ✅ 直接跟踪获取到 code（长度: {len(auth_code)}）")
@@ -1572,21 +1572,21 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
             print(f"  最终: {resp.status_code}, URL: {resp.url[:200]}")
             auth_code = _extract_code_from_url(resp.url)
             if auth_code:
-                print(f"  ✅ 最终 URL 中提取到 code")
+                print("  ✅ 最终 URL 中提取到 code")
             # 检查重定向链
             if not auth_code and resp.history:
                 for r in resp.history:
                     loc = r.headers.get("Location", "")
                     auth_code = _extract_code_from_url(loc)
                     if auth_code:
-                        print(f"  ✅ 重定向链中提取到 code")
+                        print("  ✅ 重定向链中提取到 code")
                         break
         except requests.exceptions.ConnectionError as e:
             url_match = re.search(r'(https?://localhost[^\s\'"]+)', str(e))
             if url_match:
                 auth_code = _extract_code_from_url(url_match.group(1))
                 if auth_code:
-                    print(f"  ✅ ConnectionError 中提取到 code")
+                    print("  ✅ ConnectionError 中提取到 code")
         except Exception as e:
             print(f"  ⚠️ 备用策略异常: {e}")
 
@@ -2026,7 +2026,7 @@ def save_token_json(email, access_token, refresh_token=None, id_token=None):
     }
     """
     try:
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
         payload = decode_jwt_payload(access_token)
 

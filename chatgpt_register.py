@@ -1,8 +1,8 @@
 """
-ChatGPT 批量自动注册工具 (并发版) - 支持 DuckMail / Mailcow 邮箱
+ChatGPT 批量自动注册工具 (并发版) - 支持多种临时邮箱适配器
 依赖: pip install curl_cffi
 功能: 使用临时邮箱，并发自动注册 ChatGPT 账号，自动获取 OTP 验证码
-支持邮箱提供者: duckmail (SaaS 临时邮箱), mailcow (自建邮件服务器 IMAP 收件)
+支持邮箱提供者: duckmail / mailcow / mailtm
 """
 
 import os
@@ -23,6 +23,7 @@ import email as email_lib
 from email.header import decode_header
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse, parse_qs, urlencode
+from typing import Optional
 
 from curl_cffi import requests as curl_requests
 
@@ -31,7 +32,7 @@ def _load_config():
     """从 config.json 加载配置，环境变量优先级更高"""
     config = {
         "total_accounts": 3,
-        "email_provider": "duckmail",
+        "email_provider": "mailtm",
         "duckmail_api_base": "https://api.duckmail.sbs",
         "duckmail_bearer": "",
         "mailcow_api_url": "",
@@ -39,6 +40,7 @@ def _load_config():
         "mailcow_domain": "",
         "mailcow_imap_host": "",
         "mailcow_imap_port": 993,
+        "mailtm_api_base": "https://api.mail.tm",
         "proxy": "",
         "output_file": "registered_accounts.txt",
         "enable_oauth": True,
@@ -71,6 +73,7 @@ def _load_config():
     config["mailcow_domain"] = os.environ.get("MAILCOW_DOMAIN", config["mailcow_domain"])
     config["mailcow_imap_host"] = os.environ.get("MAILCOW_IMAP_HOST", config["mailcow_imap_host"])
     config["mailcow_imap_port"] = int(os.environ.get("MAILCOW_IMAP_PORT", config["mailcow_imap_port"]))
+    config["mailtm_api_base"] = os.environ.get("MAILTM_API_BASE", config["mailtm_api_base"])
     config["proxy"] = os.environ.get("PROXY", config["proxy"])
     config["total_accounts"] = int(os.environ.get("TOTAL_ACCOUNTS", config["total_accounts"]))
     config["enable_oauth"] = os.environ.get("ENABLE_OAUTH", config["enable_oauth"])
@@ -104,6 +107,7 @@ MAILCOW_API_KEY = _CONFIG["mailcow_api_key"]
 MAILCOW_DOMAIN = _CONFIG["mailcow_domain"]
 MAILCOW_IMAP_HOST = _CONFIG["mailcow_imap_host"]
 MAILCOW_IMAP_PORT = int(_CONFIG["mailcow_imap_port"])
+MAILTM_API_BASE = _CONFIG["mailtm_api_base"].rstrip("/") if _CONFIG["mailtm_api_base"] else ""
 DEFAULT_TOTAL_ACCOUNTS = _CONFIG["total_accounts"]
 DEFAULT_PROXY = _CONFIG["proxy"]
 DEFAULT_OUTPUT_FILE = _CONFIG["output_file"]
@@ -118,24 +122,62 @@ TOKEN_JSON_DIR = _CONFIG["token_json_dir"]
 UPLOAD_API_URL = _CONFIG["upload_api_url"]
 UPLOAD_API_TOKEN = _CONFIG["upload_api_token"]
 
-if EMAIL_PROVIDER == "duckmail" and not DUCKMAIL_BEARER:
-    print("⚠️ 警告: email_provider=duckmail 但未设置 DUCKMAIL_BEARER")
-    print("   文件: config.json -> duckmail_bearer")
-    print("   环境变量: export DUCKMAIL_BEARER='your_api_key_here'")
-elif EMAIL_PROVIDER == "mailcow":
-    missing = []
-    if not MAILCOW_API_URL:
-        missing.append("mailcow_api_url")
-    if not MAILCOW_API_KEY:
-        missing.append("mailcow_api_key")
-    if not MAILCOW_DOMAIN:
-        missing.append("mailcow_domain")
-    if missing:
-        print(f"⚠️ 警告: email_provider=mailcow 但缺少配置: {', '.join(missing)}")
-    # IMAP host 默认从 API URL 推断
-    if not MAILCOW_IMAP_HOST and MAILCOW_API_URL:
-        from urllib.parse import urlparse as _urlparse
-        MAILCOW_IMAP_HOST = _urlparse(MAILCOW_API_URL).hostname or ""
+def _provider_label(provider: Optional[str] = None):
+    p = (provider or EMAIL_PROVIDER or "").lower()
+    labels = {
+        "duckmail": "DuckMail",
+        "mailcow": "Mailcow",
+        "mailtm": "Mail.tm",
+    }
+    return labels.get(p, p or "Unknown")
+
+
+def _email_provider_config_error(provider: Optional[str] = None):
+    p = (provider or EMAIL_PROVIDER or "").lower()
+    if p == "duckmail" and not DUCKMAIL_BEARER:
+        return "email_provider=duckmail 但未设置 DUCKMAIL_BEARER"
+    if p == "mailcow":
+        missing = []
+        if not MAILCOW_API_URL:
+            missing.append("mailcow_api_url")
+        if not MAILCOW_API_KEY:
+            missing.append("mailcow_api_key")
+        if not MAILCOW_DOMAIN:
+            missing.append("mailcow_domain")
+        if missing:
+            return f"email_provider=mailcow 但缺少必要配置: {', '.join(missing)}"
+    if p == "mailtm" and not MAILTM_API_BASE:
+        return "email_provider=mailtm 但未设置 mailtm_api_base"
+    supported = {"duckmail", "mailcow", "mailtm"}
+    if p not in supported:
+        return (
+            f"未知 email_provider={p}，仅支持: "
+            "duckmail / mailcow / mailtm"
+        )
+    return None
+
+
+def _email_provider_endpoint_hint(provider: Optional[str] = None):
+    p = (provider or EMAIL_PROVIDER or "").lower()
+    if p == "duckmail":
+        return DUCKMAIL_API_BASE
+    if p == "mailcow":
+        return f"{MAILCOW_API_URL} | 域名: {MAILCOW_DOMAIN}"
+    if p == "mailtm":
+        return MAILTM_API_BASE
+    return ""
+
+
+if MAILCOW_API_URL and not MAILCOW_IMAP_HOST:
+    from urllib.parse import urlparse as _urlparse
+    MAILCOW_IMAP_HOST = _urlparse(MAILCOW_API_URL).hostname or ""
+
+_provider_error = _email_provider_config_error()
+if _provider_error:
+    print(f"⚠️ 警告: {_provider_error}")
+    if EMAIL_PROVIDER == "duckmail":
+        print("   文件: config.json -> duckmail_bearer")
+        print("   环境变量: export DUCKMAIL_BEARER='your_api_key_here'")
 
 # 全局线程锁
 _print_lock = threading.Lock()
@@ -875,6 +917,255 @@ def _random_birthdate():
     return f"{y}-{m:02d}-{d:02d}"
 
 
+def _safe_json_loads(raw: str):
+    try:
+        return json.loads(raw)
+    except Exception:
+        try:
+            # 兼容部分服务偶发返回未转义控制字符
+            cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw or "")
+            return json.loads(cleaned)
+        except Exception:
+            return {}
+
+
+class EmailAdapter:
+    provider = "base"
+
+    def __init__(self, register):
+        self.reg = register
+
+    def create_temp_email(self):
+        raise NotImplementedError
+
+    def fetch_messages(self, mail_token: str):
+        return []
+
+    def extract_message_content(self, mail_token: str, message: dict):
+        if not isinstance(message, dict):
+            return ""
+        return message.get("_body") or message.get("text") or message.get("html") or message.get("data") or ""
+
+    def _json_or_empty(self, resp):
+        try:
+            return resp.json()
+        except Exception:
+            return _safe_json_loads(resp.text)
+
+
+class DuckMailAdapter(EmailAdapter):
+    provider = "duckmail"
+
+    def create_temp_email(self):
+        if not DUCKMAIL_BEARER:
+            raise Exception("DUCKMAIL_BEARER 未设置，无法创建临时邮箱")
+
+        chars = string.ascii_lowercase + string.digits
+        email_local = "".join(random.choice(chars) for _ in range(random.randint(8, 13)))
+        email_addr = f"{email_local}@duckmail.sbs"
+        password = _generate_password()
+
+        headers = {"Authorization": f"Bearer {DUCKMAIL_BEARER}"}
+        session = self.reg._create_email_http_session()
+        api_base = DUCKMAIL_API_BASE.rstrip("/")
+
+        res = session.post(
+            f"{api_base}/accounts",
+            json={"address": email_addr, "password": password},
+            headers=headers,
+            timeout=15,
+            impersonate=self.reg.impersonate,
+        )
+        if res.status_code not in (200, 201):
+            raise Exception(f"DuckMail 创建邮箱失败: {res.status_code} - {res.text[:200]}")
+
+        time.sleep(0.5)
+        token_res = session.post(
+            f"{api_base}/token",
+            json={"address": email_addr, "password": password},
+            timeout=15,
+            impersonate=self.reg.impersonate,
+        )
+        token_data = self._json_or_empty(token_res)
+        mail_token = token_data.get("token")
+        if token_res.status_code != 200 or not mail_token:
+            raise Exception(f"DuckMail 获取邮件 Token 失败: {token_res.status_code}")
+
+        return email_addr, password, mail_token
+
+    def fetch_messages(self, mail_token: str):
+        session = self.reg._create_email_http_session()
+        headers = {"Authorization": f"Bearer {mail_token}"}
+        res = session.get(
+            f"{DUCKMAIL_API_BASE.rstrip('/')}/messages",
+            headers=headers,
+            timeout=15,
+            impersonate=self.reg.impersonate,
+        )
+        if res.status_code != 200:
+            return []
+        data = self._json_or_empty(res)
+        return data.get("hydra:member") or data.get("member") or data.get("data") or []
+
+    def extract_message_content(self, mail_token: str, message: dict):
+        msg_id = (message or {}).get("id") or (message or {}).get("@id")
+        if not msg_id:
+            return ""
+        if isinstance(msg_id, str) and msg_id.startswith("/messages/"):
+            msg_id = msg_id.split("/")[-1]
+
+        session = self.reg._create_email_http_session()
+        headers = {"Authorization": f"Bearer {mail_token}"}
+        res = session.get(
+            f"{DUCKMAIL_API_BASE.rstrip('/')}/messages/{msg_id}",
+            headers=headers,
+            timeout=15,
+            impersonate=self.reg.impersonate,
+        )
+        if res.status_code != 200:
+            return ""
+        detail = self._json_or_empty(res)
+        return detail.get("text") or detail.get("html") or ""
+
+
+class MailcowAdapter(EmailAdapter):
+    provider = "mailcow"
+
+    def create_temp_email(self):
+        if not MAILCOW_DOMAIN:
+            raise Exception("MAILCOW_DOMAIN 未设置")
+        chars = string.ascii_lowercase + string.digits
+        email_local = "".join(random.choice(chars) for _ in range(random.randint(8, 13)))
+        email_addr = f"{email_local}@{MAILCOW_DOMAIN}"
+        password = _generate_password()
+        _mailcow_create_mailbox(email_addr, password)
+        return email_addr, password, f"mailcow:{email_addr}:{password}"
+
+    def fetch_messages(self, mail_token: str):
+        return _fetch_emails_mailcow(mail_token)
+
+    def extract_message_content(self, mail_token: str, message: dict):
+        return (message or {}).get("_body", "")
+
+
+class MailTmAdapter(EmailAdapter):
+    provider = "mailtm"
+
+    @staticmethod
+    def _extract_items(data):
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            for key in ("hydra:member", "member", "data", "items", "results"):
+                val = data.get(key)
+                if isinstance(val, list):
+                    return val
+        return []
+
+    def _pick_domain(self, session):
+        res = session.get(
+            f"{MAILTM_API_BASE}/domains",
+            timeout=15,
+            impersonate=self.reg.impersonate,
+        )
+        data = self._json_or_empty(res)
+        domains = self._extract_items(data)
+        if not domains:
+            raise Exception("Mail.tm 无可用域名")
+
+        candidates = []
+        for item in domains:
+            if isinstance(item, dict):
+                domain = item.get("domain") or item.get("name")
+            elif isinstance(item, str):
+                domain = item
+            else:
+                domain = None
+            if domain and "@" not in domain:
+                candidates.append(domain)
+
+        if not candidates:
+            raise Exception(f"Mail.tm 域名响应格式异常: {type(data).__name__}")
+        return random.choice(candidates)
+
+    def create_temp_email(self):
+        session = self.reg._create_email_http_session()
+        domain = self._pick_domain(session)
+        password = _generate_password()
+
+        for _ in range(5):
+            local = "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(random.randint(8, 13)))
+            email_addr = f"{local}@{domain}"
+            res = session.post(
+                f"{MAILTM_API_BASE}/accounts",
+                json={"address": email_addr, "password": password},
+                timeout=15,
+                impersonate=self.reg.impersonate,
+            )
+            if res.status_code not in (200, 201):
+                continue
+
+            token_res = session.post(
+                f"{MAILTM_API_BASE}/token",
+                json={"address": email_addr, "password": password},
+                timeout=15,
+                impersonate=self.reg.impersonate,
+            )
+            token_data = self._json_or_empty(token_res)
+            mail_token = token_data.get("token") if isinstance(token_data, dict) else ""
+            if token_res.status_code == 200 and mail_token:
+                return email_addr, password, mail_token
+            raise Exception(f"Mail.tm 获取 token 失败: {token_res.status_code}")
+
+        raise Exception("Mail.tm 创建邮箱失败（可能触发限速或域名不可用）")
+
+    def fetch_messages(self, mail_token: str):
+        session = self.reg._create_email_http_session()
+        res = session.get(
+            f"{MAILTM_API_BASE}/messages",
+            headers={"Authorization": f"Bearer {mail_token}"},
+            timeout=15,
+            impersonate=self.reg.impersonate,
+        )
+        if res.status_code != 200:
+            return []
+        data = self._json_or_empty(res)
+        return self._extract_items(data)
+
+    def extract_message_content(self, mail_token: str, message: dict):
+        msg_id = (message or {}).get("id") or (message or {}).get("@id")
+        if not msg_id:
+            return ""
+        if isinstance(msg_id, str) and msg_id.startswith("/messages/"):
+            msg_id = msg_id.split("/")[-1]
+
+        session = self.reg._create_email_http_session()
+        res = session.get(
+            f"{MAILTM_API_BASE}/messages/{msg_id}",
+            headers={"Authorization": f"Bearer {mail_token}"},
+            timeout=15,
+            impersonate=self.reg.impersonate,
+        )
+        if res.status_code != 200:
+            return ""
+        detail = self._json_or_empty(res)
+        if not isinstance(detail, dict):
+            return ""
+        return detail.get("text") or detail.get("html") or detail.get("intro") or ""
+
+
+def _build_email_adapter(register):
+    adapters = {
+        "duckmail": DuckMailAdapter,
+        "mailcow": MailcowAdapter,
+        "mailtm": MailTmAdapter,
+    }
+    cls = adapters.get(EMAIL_PROVIDER)
+    if not cls:
+        raise Exception(_email_provider_config_error() or f"未知邮箱提供者: {EMAIL_PROVIDER}")
+    return cls(register)
+
+
 class ChatGPTRegister:
     BASE = "https://chatgpt.com"
     AUTH = "https://auth.openai.com"
@@ -906,6 +1197,7 @@ class ChatGPTRegister:
 
         self.session.cookies.set("oai-did", self.device_id, domain="chatgpt.com")
         self._callback_url = None
+        self.email_adapter = _build_email_adapter(self)
 
     def _log(self, step, method, url, status, body=None):
         prefix = f"[{self.tag}] " if self.tag else ""
@@ -929,10 +1221,9 @@ class ChatGPTRegister:
         with _print_lock:
             print(f"{prefix}{msg}")
 
-    # ==================== 邮箱提供者（DuckMail / Mailcow） ====================
+    # ==================== 邮箱提供者适配器 ====================
 
-    def _create_duckmail_session(self):
-        """创建带重试的 DuckMail 请求会话"""
+    def _create_email_http_session(self):
         session = curl_requests.Session()
         session.headers.update({
             "User-Agent": self.ua,
@@ -944,131 +1235,19 @@ class ChatGPTRegister:
         return session
 
     def create_temp_email(self):
-        """创建临时邮箱，根据 EMAIL_PROVIDER 选择提供者
-        返回 (email, password, mail_token)"""
-        if EMAIL_PROVIDER == "mailcow":
-            return self._create_temp_email_mailcow()
-        else:
-            return self._create_temp_email_duckmail()
-
-    def _create_temp_email_duckmail(self):
-        """创建 DuckMail 临时邮箱，返回 (email, password, mail_token)"""
-        if not DUCKMAIL_BEARER:
-            raise Exception("DUCKMAIL_BEARER 未设置，无法创建临时邮箱")
-
-        # 生成随机邮箱前缀 8-13 位
-        chars = string.ascii_lowercase + string.digits
-        length = random.randint(8, 13)
-        email_local = "".join(random.choice(chars) for _ in range(length))
-        email = f"{email_local}@duckmail.sbs"
-        password = _generate_password()
-
-        api_base = DUCKMAIL_API_BASE.rstrip("/")
-        headers = {"Authorization": f"Bearer {DUCKMAIL_BEARER}"}
-        session = self._create_duckmail_session()
-
-        try:
-            # 1. 创建账号
-            payload = {"address": email, "password": password}
-            res = session.post(
-                f"{api_base}/accounts",
-                json=payload,
-                headers=headers,
-                timeout=15,
-                impersonate=self.impersonate
-            )
-
-            if res.status_code not in [200, 201]:
-                raise Exception(f"创建邮箱失败: {res.status_code} - {res.text[:200]}")
-
-            # 2. 获取 Token（用于读取邮件）
-            time.sleep(0.5)
-            token_payload = {"address": email, "password": password}
-            token_res = session.post(
-                f"{api_base}/token",
-                json=token_payload,
-                timeout=15,
-                impersonate=self.impersonate
-            )
-
-            if token_res.status_code == 200:
-                token_data = token_res.json()
-                mail_token = token_data.get("token")
-                if mail_token:
-                    return email, password, mail_token
-
-            raise Exception(f"获取邮件 Token 失败: {token_res.status_code}")
-
-        except Exception as e:
-            raise Exception(f"DuckMail 创建邮箱失败: {e}")
-
-    def _create_temp_email_mailcow(self):
-        """通过 Mailcow 创建临时邮箱，返回 (email, password, mail_token)"""
-        if not MAILCOW_DOMAIN:
-            raise Exception("MAILCOW_DOMAIN 未设置")
-
-        chars = string.ascii_lowercase + string.digits
-        length = random.randint(8, 13)
-        email_local = "".join(random.choice(chars) for _ in range(length))
-        email_addr = f"{email_local}@{MAILCOW_DOMAIN}"
-        password = _generate_password()
-
-        _mailcow_create_mailbox(email_addr, password)
-
-        mail_token = f"mailcow:{email_addr}:{password}"
-        return email_addr, password, mail_token
+        return self.email_adapter.create_temp_email()
 
     def _fetch_emails(self, mail_token: str):
-        """获取邮件列表（自动选择提供者）"""
-        if mail_token.startswith("mailcow:"):
-            return _fetch_emails_mailcow(mail_token)
-        else:
-            return self._fetch_emails_duckmail(mail_token)
-
-    def _fetch_emails_duckmail(self, mail_token: str):
-        """从 DuckMail 获取邮件列表"""
         try:
-            api_base = DUCKMAIL_API_BASE.rstrip("/")
-            headers = {"Authorization": f"Bearer {mail_token}"}
-            session = self._create_duckmail_session()
-
-            res = session.get(
-                f"{api_base}/messages",
-                headers=headers,
-                timeout=15,
-                impersonate=self.impersonate
-            )
-
-            if res.status_code == 200:
-                data = res.json()
-                messages = data.get("hydra:member") or data.get("member") or data.get("data") or []
-                return messages
-            return []
+            return self.email_adapter.fetch_messages(mail_token) or []
         except Exception:
             return []
 
-    def _fetch_email_detail_duckmail(self, mail_token: str, msg_id: str):
-        """获取 DuckMail 单封邮件详情"""
+    def _extract_message_content(self, mail_token: str, message: dict):
         try:
-            api_base = DUCKMAIL_API_BASE.rstrip("/")
-            headers = {"Authorization": f"Bearer {mail_token}"}
-            session = self._create_duckmail_session()
-
-            if isinstance(msg_id, str) and msg_id.startswith("/messages/"):
-                msg_id = msg_id.split("/")[-1]
-
-            res = session.get(
-                f"{api_base}/messages/{msg_id}",
-                headers=headers,
-                timeout=15,
-                impersonate=self.impersonate
-            )
-
-            if res.status_code == 200:
-                return res.json()
+            return self.email_adapter.extract_message_content(mail_token, message) or ""
         except Exception:
-            pass
-        return None
+            return ""
 
     def _extract_verification_code(self, email_content: str):
         """从邮件内容提取 6 位验证码"""
@@ -1093,36 +1272,18 @@ class ChatGPTRegister:
         return None
 
     def wait_for_verification_email(self, mail_token: str, timeout: int = 120):
-        """等待并提取 OpenAI 验证码（自动选择提供者）"""
-        provider = "Mailcow" if mail_token.startswith("mailcow:") else "DuckMail"
+        provider = _provider_label(EMAIL_PROVIDER)
         self._print(f"[OTP] 等待验证码邮件 via {provider} (最多 {timeout}s)...")
         start_time = time.time()
 
         while time.time() - start_time < timeout:
-            if mail_token.startswith("mailcow:"):
-                # Mailcow IMAP 模式: _body 已经是邮件正文
-                messages = _fetch_emails_mailcow(mail_token)
-                for msg in messages:
-                    body = msg.get("_body", "")
-                    code = self._extract_verification_code(body)
-                    if code:
-                        self._print(f"[OTP] 验证码: {code}")
-                        return code
-            else:
-                # DuckMail API 模式
-                messages = self._fetch_emails_duckmail(mail_token)
-                if messages and len(messages) > 0:
-                    first_msg = messages[0]
-                    msg_id = first_msg.get("id") or first_msg.get("@id")
-
-                    if msg_id:
-                        detail = self._fetch_email_detail_duckmail(mail_token, msg_id)
-                        if detail:
-                            content = detail.get("text") or detail.get("html") or ""
-                            code = self._extract_verification_code(content)
-                            if code:
-                                self._print(f"[OTP] 验证码: {code}")
-                                return code
+            messages = self._fetch_emails(mail_token)
+            for msg in messages[:12]:
+                content = self._extract_message_content(mail_token, msg)
+                code = self._extract_verification_code(content)
+                if code:
+                    self._print(f"[OTP] 验证码: {code}")
+                    return code
 
             elapsed = int(time.time() - start_time)
             self._print(f"[OTP] 等待中... ({elapsed}s/{timeout}s)")
@@ -1313,6 +1474,21 @@ class ChatGPTRegister:
         _random_delay(0.5, 1.5)
         status, data = self.create_account(name, birthdate)
         if status != 200:
+            err_code = ""
+            err_msg = ""
+            if isinstance(data, dict):
+                err = data.get("error")
+                if isinstance(err, dict):
+                    err_code = str(err.get("code") or "")
+                    err_msg = str(err.get("message") or "")
+            if err_code == "unsupported_email":
+                domain = email.split("@", 1)[1] if "@" in email else email
+                raise Exception(
+                    "Create account 失败 "
+                    f"({status}): unsupported_email, 当前域名 `{domain}` 被 OpenAI 拒绝。"
+                    "请切换 email_provider（推荐 mailtm / duckmail / mailcow）"
+                    + (f"。原始消息: {err_msg}" if err_msg else "")
+                )
             raise Exception(f"Create account 失败 ({status}): {data}")
         _random_delay(0.2, 0.5)
         self.callback()
@@ -1812,18 +1988,7 @@ class ChatGPTRegister:
                 candidate_codes = []
 
                 for msg in messages[:12]:
-                    if mail_token.startswith("mailcow:"):
-                        # Mailcow: _body 直接是邮件正文
-                        content = msg.get("_body", "")
-                    else:
-                        # DuckMail: 需要二次请求获取详情
-                        msg_id = msg.get("id") or msg.get("@id")
-                        if not msg_id:
-                            continue
-                        detail = self._fetch_email_detail_duckmail(mail_token, msg_id)
-                        if not detail:
-                            continue
-                        content = detail.get("text") or detail.get("html") or ""
+                    content = self._extract_message_content(mail_token, msg)
                     code = self._extract_verification_code(content)
                     if code and code not in tried_codes:
                         candidate_codes.append(code)
@@ -1959,7 +2124,7 @@ def _register_one(idx, total, proxy, output_file):
         reg = ChatGPTRegister(proxy=proxy, tag=f"{idx}")
 
         # 1. 创建临时邮箱
-        provider_name = "Mailcow" if EMAIL_PROVIDER == "mailcow" else "DuckMail"
+        provider_name = _provider_label(EMAIL_PROVIDER)
         reg._print(f"[{provider_name}] 创建临时邮箱...")
         email, email_pwd, mail_token = reg.create_temp_email()
         tag = email.split("@")[0]
@@ -2033,24 +2198,17 @@ def run_batch(total_accounts: int = 3, output_file="registered_accounts.txt",
               max_workers=3, proxy=None):
     """并发批量注册"""
 
-    if EMAIL_PROVIDER == "duckmail" and not DUCKMAIL_BEARER:
-        print("❌ 错误: email_provider=duckmail 但未设置 DUCKMAIL_BEARER")
-        print("   请设置: export DUCKMAIL_BEARER='your_api_key_here'")
-        return
-    elif EMAIL_PROVIDER == "mailcow" and (not MAILCOW_API_URL or not MAILCOW_API_KEY or not MAILCOW_DOMAIN):
-        print("❌ 错误: email_provider=mailcow 但缺少必要配置")
-        print("   必须设置: mailcow_api_url, mailcow_api_key, mailcow_domain")
+    provider_error = _email_provider_config_error()
+    if provider_error:
+        print(f"❌ 错误: {provider_error}")
         return
 
-    provider_name = "Mailcow" if EMAIL_PROVIDER == "mailcow" else "DuckMail"
+    provider_name = _provider_label(EMAIL_PROVIDER)
     actual_workers = min(max_workers, total_accounts)
     print(f"\n{'#'*60}")
     print(f"  ChatGPT 批量自动注册 ({provider_name} 邮箱)")
     print(f"  注册数量: {total_accounts} | 并发数: {actual_workers}")
-    if EMAIL_PROVIDER == "mailcow":
-        print(f"  Mailcow: {MAILCOW_API_URL} | 域名: {MAILCOW_DOMAIN}")
-    else:
-        print(f"  DuckMail: {DUCKMAIL_API_BASE}")
+    print(f"  提供者配置: {_email_provider_endpoint_hint()}")
     print(f"  OAuth: {'开启' if ENABLE_OAUTH else '关闭'} | required: {'是' if OAUTH_REQUIRED else '否'}")
     if ENABLE_OAUTH:
         print(f"  OAuth Issuer: {OAUTH_ISSUER}")
@@ -2097,32 +2255,21 @@ def run_batch(total_accounts: int = 3, output_file="registered_accounts.txt",
 
 
 def main():
-    provider_name = "Mailcow" if EMAIL_PROVIDER == "mailcow" else "DuckMail"
+    provider_name = _provider_label(EMAIL_PROVIDER)
     print("=" * 60)
     print(f"  ChatGPT 批量自动注册工具 ({provider_name} 邮箱)")
     print("=" * 60)
 
     # 检查邮箱配置
-    if EMAIL_PROVIDER == "duckmail" and not DUCKMAIL_BEARER:
-        print("\n⚠️  警告: 未设置 DUCKMAIL_BEARER")
-        print("   请编辑 config.json 设置 duckmail_bearer，或设置环境变量:")
-        print("   Windows: set DUCKMAIL_BEARER=your_api_key_here")
-        print("   Linux/Mac: export DUCKMAIL_BEARER='your_api_key_here'")
+    provider_error = _email_provider_config_error()
+    if provider_error:
+        print(f"\n⚠️  警告: {provider_error}")
+        if EMAIL_PROVIDER == "duckmail":
+            print("   请编辑 config.json 设置 duckmail_bearer，或设置环境变量:")
+            print("   Windows: set DUCKMAIL_BEARER=your_api_key_here")
+            print("   Linux/Mac: export DUCKMAIL_BEARER='your_api_key_here'")
         print("\n   按 Enter 继续尝试运行 (可能会失败)...")
         input()
-    elif EMAIL_PROVIDER == "mailcow":
-        missing = []
-        if not MAILCOW_API_URL:
-            missing.append("mailcow_api_url")
-        if not MAILCOW_API_KEY:
-            missing.append("mailcow_api_key")
-        if not MAILCOW_DOMAIN:
-            missing.append("mailcow_domain")
-        if missing:
-            print(f"\n⚠️  警告: Mailcow 配置不完整，缺少: {', '.join(missing)}")
-            print("   请编辑 config.json 设置相关配置")
-            print("\n   按 Enter 继续尝试运行 (可能会失败)...")
-            input()
 
     # 交互式代理配置
     proxy = DEFAULT_PROXY

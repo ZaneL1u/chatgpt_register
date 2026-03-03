@@ -1,9 +1,10 @@
 # ChatGPT 批量自动注册工具
 
-一个支持并发注册的 Python 脚本，支持两种邮箱来源：
+一个支持并发注册的 Python 脚本，支持多种邮箱来源：
 
 - `duckmail`：DuckMail API 临时邮箱
 - `mailcow`：自建 Mailcow（API 创建邮箱 + IMAP 收验证码）
+- `mailtm`：Mail.tm 公共 API 临时邮箱
 
 ## Fork 说明
 
@@ -12,6 +13,7 @@
 - 注册前通过 Mailcow API 自动创建邮箱
 - 注册时通过 IMAP 自动拉取 OTP 验证码
 - 注册后自动删除临时邮箱，减少邮箱配额占用
+- 新增邮箱适配器层，可切换 `mailtm`
 
 ## 适用人群
 
@@ -72,7 +74,7 @@ copy config.example.json config.json
 
 ### 第二步：编辑 `config.json`
 
-至少先把你选的邮箱提供者配置好（DuckMail 或 Mailcow）。
+至少先把你选的邮箱提供者配置好（DuckMail / Mailcow / Mail.tm）。
 
 ### 第三步：运行脚本
 
@@ -212,7 +214,7 @@ Mailcow 模式下，脚本在任务结束后会尝试删除临时邮箱。你会
 | 配置项 | 默认值 | 何时必填 | 作用 |
 |---|---:|---|---|
 | `total_accounts` | `3` | 否 | 默认注册数量（交互时可改） |
-| `email_provider` | `duckmail` | 是 | 邮箱来源：`duckmail` / `mailcow` |
+| `email_provider` | `mailtm` | 是 | 邮箱来源：`duckmail` / `mailcow` / `mailtm` |
 | `duckmail_api_base` | `https://api.duckmail.sbs` | DuckMail 必填 | DuckMail API 基础地址 |
 | `duckmail_bearer` | `""` | DuckMail 必填 | DuckMail API Token |
 | `mailcow_api_url` | `""` | Mailcow 必填 | Mailcow API 地址 |
@@ -220,6 +222,7 @@ Mailcow 模式下，脚本在任务结束后会尝试删除临时邮箱。你会
 | `mailcow_domain` | `""` | Mailcow 必填 | 创建邮箱所用域名 |
 | `mailcow_imap_host` | `""` | Mailcow 建议填 | IMAP 主机，不填时尝试从 `mailcow_api_url` 推断 |
 | `mailcow_imap_port` | `993` | Mailcow 可选 | IMAP 端口 |
+| `mailtm_api_base` | `https://api.mail.tm` | Mail.tm 可选 | Mail.tm API 基础地址 |
 | `proxy` | `""` | 否 | 默认代理（交互时可改） |
 | `output_file` | `registered_accounts.txt` | 否 | 注册结果输出文件 |
 | `enable_oauth` | `true` | 否 | 是否执行 OAuth 获取 token |
@@ -245,6 +248,7 @@ Mailcow 模式下，脚本在任务结束后会尝试删除临时邮箱。你会
 - `MAILCOW_DOMAIN`
 - `MAILCOW_IMAP_HOST`
 - `MAILCOW_IMAP_PORT`
+- `MAILTM_API_BASE`
 - `PROXY`
 - `TOTAL_ACCOUNTS`
 - `ENABLE_OAUTH`
@@ -277,6 +281,15 @@ export MAILCOW_API_KEY=xxxx
 export MAILCOW_DOMAIN=example.com
 export MAILCOW_IMAP_HOST=mail.example.com
 export MAILCOW_IMAP_PORT=993
+python chatgpt_register.py
+```
+
+示例（Mail.tm）：
+
+```bash
+export EMAIL_PROVIDER=mailtm
+export MAILTM_API_BASE=https://api.mail.tm
+export TOTAL_ACCOUNTS=3
 python chatgpt_register.py
 ```
 
@@ -316,7 +329,15 @@ python chatgpt_register.py
 curl -I https://chatgpt.com --max-time 10
 ```
 
-### 4) Mailcow 收不到 OTP
+### 4) `Create account 失败 ... unsupported_email`
+
+原因：OpenAI 拒绝了该邮箱域名（常见于部分临时邮箱域）。  
+处理：
+
+- 切换到 `mailtm` / `duckmail` / `mailcow`
+- 降并发到 `1` 先做单账号验证
+
+### 5) Mailcow 收不到 OTP
 
 处理顺序：
 
@@ -325,7 +346,7 @@ curl -I https://chatgpt.com --max-time 10
 3. 确认 IMAP 登录未被策略拦截
 4. 将并发降到 `1` 先做单账号验证
 
-### 5) OAuth 获取失败
+### 6) OAuth 获取失败
 
 如果你只关心注册成功，不强制 token，可设置：
 
@@ -373,4 +394,3 @@ curl -I https://chatgpt.com --max-time 10
 - DuckMail API：`https://api.duckmail.sbs`
 - CPA 文档：`https://help.router-for.me/cn/`
 - CPA 面板仓库：`https://github.com/dongshuyan/CPA-Dashboard`
-

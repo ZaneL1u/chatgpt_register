@@ -1,8 +1,8 @@
 {
   "_comment": "ChatGPT 批量注册工具 - 示例配置（请复制为 config.json 后填写真实值）",
   "total_accounts": 5,
-  "email_provider": "mailcow",
-  "_comment_email_provider": "可选: duckmail / mailcow",
+  "email_provider": "mailtm",
+  "_comment_email_provider": "可选: duckmail / mailcow / mailtm",
 
   "_comment_duckmail": "DuckMail 临时邮箱配置（email_provider=duckmail 时使用）",
   "duckmail_api_base": "https://api.duckmail.sbs",
@@ -14,6 +14,9 @@
   "mailcow_domain": "example.com",
   "mailcow_imap_host": "mail.example.com",
   "mailcow_imap_port": 993,
+
+  "_comment_mailtm": "Mail.tm 临时邮箱配置（email_provider=mailtm 时使用）",
+  "mailtm_api_base": "https://api.mail.tm",
 
   "proxy": "",
   "output_file": "registered_accounts.txt",
