@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Runtime outputs
+registered_accounts.txt
+ak.txt
+rk.txt
+codex_tokens/
+
+# Local secrets / machine-specific config
+config.json
+codex/config.json
+.env
+.env.*
