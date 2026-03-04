@@ -31,7 +31,18 @@
   "rk_file": "rk.txt",
   "token_json_dir": "codex_tokens",
 
-  "_comment_upload": "不上传可留空",
+  "_comment_upload": "上传目标: none / cpa / sub2api / both（也可写 cpa,sub2api）",
+  "upload_targets": "cpa",
+
+  "_comment_cpa_upload": "CPA 上传配置（upload_targets 包含 cpa 时使用）",
   "upload_api_url": "",
-  "upload_api_token": ""
+  "upload_api_token": "",
+
+  "_comment_sub2api_upload": "Sub2API 上传配置（upload_targets 包含 sub2api 时使用）",
+  "sub2api_api_base": "https://sub2api.example.com",
+  "sub2api_admin_api_key": "",
+  "sub2api_bearer_token": "",
+  "sub2api_group_ids": [],
+  "sub2api_account_concurrency": 1,
+  "sub2api_account_priority": 1
 }

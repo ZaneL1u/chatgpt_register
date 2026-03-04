@@ -1,6 +1,8 @@
 __pycache__/
 *.py[cod]
 .DS_Store
+.venv/
+*.egg-info/
 
 # Runtime outputs
 registered_accounts.txt

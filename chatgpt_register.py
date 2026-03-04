@@ -1,31 +1,65 @@
 """
 ChatGPT 批量自动注册工具 (并发版) - 支持多种临时邮箱适配器
-依赖: pip install curl_cffi
+依赖管理: uv sync (或 pip install curl_cffi)
 功能: 使用临时邮箱，并发自动注册 ChatGPT 账号，自动获取 OTP 验证码
 支持邮箱提供者: duckmail / mailcow / mailtm
 """
 
-import os
-import re
-import uuid
+import base64
+import argparse
+import email as email_lib
+import hashlib
+import imaplib
 import json
+import os
 import random
+import re
+import secrets
 import string
-import time
 import sys
 import threading
+import time
 import traceback
-import secrets
-import hashlib
-import base64
-import imaplib
-import email as email_lib
-from email.header import decode_header
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import urlparse, parse_qs, urlencode
+from email.header import decode_header
 from typing import Optional
+from urllib.parse import parse_qs, urlencode, urlparse
 
 from curl_cffi import requests as curl_requests
+
+
+def _as_int(value, default=0):
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _parse_int_list(value):
+    if value is None:
+        return []
+
+    if isinstance(value, (list, tuple, set)):
+        items = list(value)
+    else:
+        text = str(value).strip()
+        if not text:
+            return []
+        items = [part for part in re.split(r"[,\s]+", text) if part]
+
+    out = []
+    for item in items:
+        try:
+            num = int(item)
+            if num > 0:
+                out.append(num)
+        except Exception:
+            continue
+
+    # 去重并保持顺序
+    return list(dict.fromkeys(out))
+
 
 # ================= 加载配置 =================
 def _load_config():
@@ -51,8 +85,15 @@ def _load_config():
         "ak_file": "ak.txt",
         "rk_file": "rk.txt",
         "token_json_dir": "codex_tokens",
+        "upload_targets": "cpa",
         "upload_api_url": "",
         "upload_api_token": "",
+        "sub2api_api_base": "",
+        "sub2api_admin_api_key": "",
+        "sub2api_bearer_token": "",
+        "sub2api_group_ids": [],
+        "sub2api_account_concurrency": 1,
+        "sub2api_account_priority": 1,
     }
 
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
@@ -84,8 +125,22 @@ def _load_config():
     config["ak_file"] = os.environ.get("AK_FILE", config["ak_file"])
     config["rk_file"] = os.environ.get("RK_FILE", config["rk_file"])
     config["token_json_dir"] = os.environ.get("TOKEN_JSON_DIR", config["token_json_dir"])
+    config["upload_targets"] = os.environ.get("UPLOAD_TARGETS", config["upload_targets"])
     config["upload_api_url"] = os.environ.get("UPLOAD_API_URL", config["upload_api_url"])
     config["upload_api_token"] = os.environ.get("UPLOAD_API_TOKEN", config["upload_api_token"])
+    config["sub2api_api_base"] = os.environ.get("SUB2API_API_BASE", config["sub2api_api_base"])
+    config["sub2api_admin_api_key"] = os.environ.get("SUB2API_ADMIN_API_KEY", config["sub2api_admin_api_key"])
+    config["sub2api_bearer_token"] = os.environ.get("SUB2API_BEARER_TOKEN", config["sub2api_bearer_token"])
+    group_ids_env = os.environ.get("SUB2API_GROUP_IDS")
+    config["sub2api_group_ids"] = _parse_int_list(group_ids_env if group_ids_env is not None else config.get("sub2api_group_ids"))
+    config["sub2api_account_concurrency"] = _as_int(
+        os.environ.get("SUB2API_ACCOUNT_CONCURRENCY", config["sub2api_account_concurrency"]),
+        1,
+    )
+    config["sub2api_account_priority"] = _as_int(
+        os.environ.get("SUB2API_ACCOUNT_PRIORITY", config["sub2api_account_priority"]),
+        1,
+    )
 
     return config
 
@@ -119,8 +174,74 @@ OAUTH_REDIRECT_URI = _CONFIG["oauth_redirect_uri"]
 AK_FILE = _CONFIG["ak_file"]
 RK_FILE = _CONFIG["rk_file"]
 TOKEN_JSON_DIR = _CONFIG["token_json_dir"]
+UPLOAD_TARGETS = _CONFIG.get("upload_targets", "cpa")
 UPLOAD_API_URL = _CONFIG["upload_api_url"]
 UPLOAD_API_TOKEN = _CONFIG["upload_api_token"]
+SUB2API_API_BASE = _CONFIG["sub2api_api_base"].rstrip("/") if _CONFIG["sub2api_api_base"] else ""
+SUB2API_ADMIN_API_KEY = _CONFIG["sub2api_admin_api_key"]
+SUB2API_BEARER_TOKEN = _CONFIG["sub2api_bearer_token"]
+SUB2API_GROUP_IDS = _parse_int_list(_CONFIG.get("sub2api_group_ids"))
+SUB2API_ACCOUNT_CONCURRENCY = max(0, _as_int(_CONFIG.get("sub2api_account_concurrency"), 1))
+SUB2API_ACCOUNT_PRIORITY = _as_int(_CONFIG.get("sub2api_account_priority"), 1)
+
+
+def _parse_upload_targets(value):
+    alias = {
+        "cpa": "cpa",
+        "sub2api": "sub2api",
+        "sub2": "sub2api",
+        "s2a": "sub2api",
+    }
+    tokens = []
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            tokens.extend(str(item).split(","))
+    else:
+        tokens = re.split(r"[,|/\s]+", str(value or ""))
+
+    targets = set()
+    unknown = []
+    for token in tokens:
+        t = token.strip().lower()
+        if not t:
+            continue
+        if t in {"both", "all"}:
+            targets.update({"cpa", "sub2api"})
+            continue
+        if t in {"none", "off", "no", "disable", "disabled"}:
+            continue
+        mapped = alias.get(t)
+        if mapped:
+            targets.add(mapped)
+        else:
+            unknown.append(t)
+    return targets, unknown
+
+
+def _upload_targets_config_errors(targets):
+    errors = []
+    if "cpa" in targets:
+        if UPLOAD_API_URL or UPLOAD_API_TOKEN:
+            if not UPLOAD_API_URL:
+                errors.append("upload_targets 包含 cpa，但未设置 upload_api_url")
+            if not UPLOAD_API_TOKEN:
+                errors.append("upload_targets 包含 cpa，但未设置 upload_api_token")
+    if "sub2api" in targets:
+        if not SUB2API_API_BASE:
+            errors.append("upload_targets 包含 sub2api，但未设置 sub2api_api_base")
+        if not SUB2API_ADMIN_API_KEY and not SUB2API_BEARER_TOKEN:
+            errors.append("upload_targets 包含 sub2api，但未设置 sub2api_admin_api_key 或 sub2api_bearer_token")
+    return errors
+
+
+UPLOAD_TARGET_SET, _UPLOAD_TARGET_UNKNOWN = _parse_upload_targets(UPLOAD_TARGETS)
+
+
+def _upload_targets_desc(targets):
+    if not targets:
+        return "none"
+    ordered = [name for name in ["cpa", "sub2api"] if name in targets]
+    return " + ".join(ordered) if ordered else "none"
 
 def _provider_label(provider: Optional[str] = None):
     p = (provider or EMAIL_PROVIDER or "").lower()
@@ -178,6 +299,14 @@ if _provider_error:
     if EMAIL_PROVIDER == "duckmail":
         print("   文件: config.json -> duckmail_bearer")
         print("   环境变量: export DUCKMAIL_BEARER='your_api_key_here'")
+
+if _UPLOAD_TARGET_UNKNOWN:
+    print(f"⚠️ 警告: upload_targets 含未知目标: {', '.join(_UPLOAD_TARGET_UNKNOWN)}")
+    print("   支持: cpa / sub2api / both / none")
+
+_upload_config_errors = _upload_targets_config_errors(UPLOAD_TARGET_SET)
+for _err in _upload_config_errors:
+    print(f"⚠️ 警告: {_err}")
 
 # 全局线程锁
 _print_lock = threading.Lock()
@@ -471,12 +600,12 @@ def _save_codex_tokens(email: str, tokens: dict):
     exp_timestamp = payload.get("exp")
     expired_str = ""
     if isinstance(exp_timestamp, int) and exp_timestamp > 0:
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
         exp_dt = datetime.fromtimestamp(exp_timestamp, tz=timezone(timedelta(hours=8)))
         expired_str = exp_dt.strftime("%Y-%m-%dT%H:%M:%S+08:00")
 
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
 
     now = datetime.now(tz=timezone(timedelta(hours=8)))
     token_data = {
@@ -499,13 +628,267 @@ def _save_codex_tokens(email: str, tokens: dict):
         with open(token_path, "w", encoding="utf-8") as f:
             json.dump(token_data, f, ensure_ascii=False)
 
-    # 上传到 CPA 管理平台
-    if UPLOAD_API_URL:
-        _upload_token_json(token_path)
+    _upload_token_data(email=email, token_data=token_data, filepath=token_path)
 
 
-def _upload_token_json(filepath):
+def _new_upload_session():
+    session = curl_requests.Session()
+    if DEFAULT_PROXY:
+        session.proxies = {"http": DEFAULT_PROXY, "https": DEFAULT_PROXY}
+    return session
+
+
+def _sub2api_auth_headers():
+    headers = {"Accept": "application/json"}
+    if SUB2API_ADMIN_API_KEY:
+        headers["x-api-key"] = SUB2API_ADMIN_API_KEY
+    elif SUB2API_BEARER_TOKEN:
+        headers["Authorization"] = f"Bearer {SUB2API_BEARER_TOKEN}"
+    return headers
+
+
+def _fetch_sub2api_openai_groups():
+    if not SUB2API_API_BASE:
+        raise Exception("sub2api_api_base 未设置")
+    if not SUB2API_ADMIN_API_KEY and not SUB2API_BEARER_TOKEN:
+        raise Exception("未设置 sub2api_admin_api_key 或 sub2api_bearer_token")
+
+    session = _new_upload_session()
+    groups = []
+    page = 1
+    page_size = 100
+
+    while True:
+        resp = session.get(
+            f"{SUB2API_API_BASE}/api/v1/admin/groups",
+            params={"platform": "openai", "page": page, "page_size": page_size},
+            headers=_sub2api_auth_headers(),
+            verify=False,
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            raise Exception(f"获取分组失败: {resp.status_code} - {resp.text[:200]}")
+
+        body = {}
+        try:
+            body = resp.json() or {}
+        except Exception:
+            raise Exception("获取分组失败: 响应不是 JSON")
+
+        data = body.get("data") or {}
+        items = data.get("items") or []
+        for item in items:
+            if str(item.get("platform", "")).lower() != "openai":
+                continue
+            gid = item.get("id")
+            try:
+                gid = int(gid)
+            except Exception:
+                continue
+            groups.append({
+                "id": gid,
+                "name": str(item.get("name") or f"group-{gid}"),
+                "status": str(item.get("status") or ""),
+            })
+
+        pages = data.get("pages")
+        current_page = data.get("page", page)
+        if isinstance(pages, int) and pages > 0 and current_page >= pages:
+            break
+        if len(items) < page_size:
+            break
+        page += 1
+
+    # 去重（按 ID）
+    unique = {}
+    for group in groups:
+        unique[group["id"]] = group
+    return list(unique.values())
+
+
+def _set_upload_targets_from_text(raw: str):
+    global UPLOAD_TARGET_SET
+
+    targets, unknown = _parse_upload_targets(raw)
+    if unknown:
+        raise ValueError(f"无法识别的上传目标: {', '.join(unknown)}")
+    UPLOAD_TARGET_SET = targets
+
+
+def _tui_select(message: str, choices, default_value=None):
+    """
+    终端 TUI 选择器（↑↓ + Enter）。
+    choices: List[Tuple[title, value]]
+    返回 value；若用户取消则返回 None。
+    若环境不满足要求则抛出 RuntimeError。
+    """
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        raise RuntimeError("当前环境不是可交互终端，无法使用箭头菜单。请在终端运行或使用 --non-interactive。")
+
+    try:
+        import questionary
+    except Exception as e:
+        raise RuntimeError("缺少依赖 questionary，请先执行 `uv sync`（或 `pip install questionary`）。") from e
+
+    q_choices = [questionary.Choice(title=title, value=value) for title, value in choices]
+    try:
+        return questionary.select(
+            message,
+            choices=q_choices,
+            default=default_value,
+            qmark=">",
+            pointer="➤",
+        ).ask()
+    except Exception as e:
+        raise RuntimeError(f"questionary 选择器初始化失败: {e}") from e
+
+
+def _prompt_upload_targets():
+    global UPLOAD_TARGET_SET
+
+    options = [
+        ("none", set(), "none（不上传）"),
+        ("cpa", {"cpa"}, "cpa（只传 CPA）"),
+        ("sub2api", {"sub2api"}, "sub2api（只传 Sub2API）"),
+        ("both", {"cpa", "sub2api"}, "both（CPA + Sub2API）"),
+    ]
+
+    default_idx = 1
+    for idx, (_, target_set, _) in enumerate(options, start=1):
+        if target_set == UPLOAD_TARGET_SET:
+            default_idx = idx
+            break
+
+    tui_choices = [(title, key) for key, _, title in options]
+    default_key = options[default_idx - 1][0]
+    selected_key = _tui_select("请选择 Token 上传目标（↑↓ 选择，Enter 确认）", tui_choices, default_key)
+    if selected_key is None:
+        raise KeyboardInterrupt
+    for key, target_set, _ in options:
+        if key == selected_key:
+            UPLOAD_TARGET_SET = target_set.copy()
+            return
+    raise RuntimeError(f"未知上传目标选项: {selected_key}")
+
+
+def _prepare_sub2api_group_binding(
+    interactive=True,
+    selected_group_id: Optional[int] = None,
+    auto_select_first=False,
+):
+    global SUB2API_API_BASE
+    global SUB2API_ADMIN_API_KEY
+    global SUB2API_BEARER_TOKEN
+    global SUB2API_GROUP_IDS
+
+    if not SUB2API_API_BASE:
+        if interactive:
+            SUB2API_API_BASE = input("Sub2API 地址 (例如 https://sub2api.example.com): ").strip().rstrip("/")
+        else:
+            print("⚠️ 未设置 sub2api_api_base，无法继续 Sub2API 上传")
+            return False
+    if not SUB2API_API_BASE:
+        print("⚠️ 未设置 Sub2API 地址，无法继续 Sub2API 上传")
+        return False
+
+    if not SUB2API_ADMIN_API_KEY and not SUB2API_BEARER_TOKEN:
+        if interactive:
+            key = input("Sub2API Admin API Key (推荐，留空则输入 Bearer Token): ").strip()
+            if key:
+                SUB2API_ADMIN_API_KEY = key
+            else:
+                bearer = input("Sub2API Bearer Token: ").strip()
+                if bearer:
+                    SUB2API_BEARER_TOKEN = bearer
+        else:
+            print("⚠️ 未设置 sub2api_admin_api_key 或 sub2api_bearer_token，无法继续 Sub2API 上传")
+            return False
+
+    if not SUB2API_ADMIN_API_KEY and not SUB2API_BEARER_TOKEN:
+        print("⚠️ 未设置 Sub2API 凭证，无法继续 Sub2API 上传")
+        return False
+
+    print("[Sub2API] 正在获取 openai 分组...")
+    try:
+        groups = _fetch_sub2api_openai_groups()
+    except Exception as e:
+        print(f"⚠️ {e}")
+        return False
+
+    if not groups:
+        print("⚠️ Sub2API 中未找到 openai 平台分组。请先在管理后台新建分组后重试。")
+        return False
+
+    selected = None
+    if selected_group_id is None and SUB2API_GROUP_IDS:
+        try:
+            selected_group_id = int(SUB2API_GROUP_IDS[0])
+        except Exception:
+            selected_group_id = None
+
+    if selected_group_id is not None:
+        for group in groups:
+            if group["id"] == selected_group_id:
+                selected = group
+                break
+        if not selected:
+            print(f"⚠️ 指定的 Sub2API 分组不存在或非 openai 平台: id={selected_group_id}")
+            return False
+
+    if selected is None and not interactive:
+        if auto_select_first:
+            selected = groups[0]
+        else:
+            print("⚠️ 非交互模式下请提供 --sub2api-group-id，或使用 --sub2api-auto-select-first-group")
+            return False
+
+    if selected is None:
+        tui_choices = []
+        for group in groups:
+            status = group.get("status") or "-"
+            title = f"{group['name']} (ID={group['id']}, status={status})"
+            tui_choices.append((title, group["id"]))
+
+        selected_group_id = _tui_select(
+            "选择 Sub2API openai 分组（↑↓ 选择，Enter 确认）",
+            tui_choices,
+            groups[0]["id"],
+        )
+        if selected_group_id is None:
+            raise KeyboardInterrupt
+        for group in groups:
+            if group["id"] == selected_group_id:
+                selected = group
+                break
+
+    if selected is None:
+        raise RuntimeError("分组选择失败。")
+
+    SUB2API_GROUP_IDS = [selected["id"]]
+    print(f"[Sub2API] 已选择分组: {selected['name']} (ID={selected['id']})")
+    return True
+
+
+def _upload_token_data(email: str, token_data: dict, filepath: str):
+    if not UPLOAD_TARGET_SET:
+        return
+
+    if "cpa" in UPLOAD_TARGET_SET:
+        _upload_token_json_to_cpa(filepath)
+
+    if "sub2api" in UPLOAD_TARGET_SET:
+        _upload_token_to_sub2api(email=email, token_data=token_data)
+
+
+def _upload_token_json_to_cpa(filepath):
     """上传 Token JSON 文件到 CPA 管理平台"""
+    if not UPLOAD_API_URL:
+        return
+    if not UPLOAD_API_TOKEN:
+        with _print_lock:
+            print("  [CPA] upload_api_token 未设置，跳过上传")
+        return
+
     mp = None
     try:
         from curl_cffi import CurlMime
@@ -519,9 +902,7 @@ def _upload_token_json(filepath):
             local_path=filepath,
         )
 
-        session = curl_requests.Session()
-        if DEFAULT_PROXY:
-            session.proxies = {"http": DEFAULT_PROXY, "https": DEFAULT_PROXY}
+        session = _new_upload_session()
 
         resp = session.post(
             UPLOAD_API_URL,
@@ -531,7 +912,7 @@ def _upload_token_json(filepath):
             timeout=30,
         )
 
-        if resp.status_code == 200:
+        if 200 <= resp.status_code < 300:
             with _print_lock:
                 print(f"  [CPA] Token JSON 已上传到 CPA 管理平台")
         else:
@@ -543,6 +924,65 @@ def _upload_token_json(filepath):
     finally:
         if mp:
             mp.close()
+
+
+def _upload_token_to_sub2api(email: str, token_data: dict):
+    if not SUB2API_API_BASE:
+        return
+    if not SUB2API_ADMIN_API_KEY and not SUB2API_BEARER_TOKEN:
+        with _print_lock:
+            print("  [Sub2API] 未设置 sub2api_admin_api_key 或 sub2api_bearer_token，跳过上传")
+        return
+
+    access_token = token_data.get("access_token") or ""
+    if not access_token:
+        with _print_lock:
+            print("  [Sub2API] 缺少 access_token，跳过上传")
+        return
+
+    credentials = {
+        "access_token": access_token,
+        "refresh_token": token_data.get("refresh_token") or "",
+        "id_token": token_data.get("id_token") or "",
+        "email": email,
+        "chatgpt_account_id": token_data.get("account_id") or "",
+        "expires_at": token_data.get("expired") or "",
+    }
+    credentials = {k: v for k, v in credentials.items() if v not in (None, "")}
+
+    payload = {
+        "name": email,
+        "platform": "openai",
+        "type": "oauth",
+        "credentials": credentials,
+        "concurrency": SUB2API_ACCOUNT_CONCURRENCY,
+        "priority": SUB2API_ACCOUNT_PRIORITY,
+    }
+    if SUB2API_GROUP_IDS:
+        payload["group_ids"] = SUB2API_GROUP_IDS
+
+    headers = _sub2api_auth_headers()
+    headers["Content-Type"] = "application/json"
+
+    session = _new_upload_session()
+    endpoint = f"{SUB2API_API_BASE}/api/v1/admin/accounts"
+    try:
+        resp = session.post(
+            endpoint,
+            json=payload,
+            headers=headers,
+            verify=False,
+            timeout=30,
+        )
+        if 200 <= resp.status_code < 300:
+            with _print_lock:
+                print("  [Sub2API] OAuth 账号已创建")
+        else:
+            with _print_lock:
+                print(f"  [Sub2API] 上传失败: {resp.status_code} - {resp.text[:200]}")
+    except Exception as e:
+        with _print_lock:
+            print(f"  [Sub2API] 上传异常: {e}")
 
 
 def _generate_password(length=14):
@@ -2254,58 +2694,216 @@ def run_batch(total_accounts: int = 3, output_file="registered_accounts.txt",
     print(f"{'#'*60}")
 
 
-def main():
-    provider_name = _provider_label(EMAIL_PROVIDER)
-    print("=" * 60)
-    print(f"  ChatGPT 批量自动注册工具 ({provider_name} 邮箱)")
-    print("=" * 60)
+def _build_cli_parser():
+    parser = argparse.ArgumentParser(
+        prog="chatgpt-register",
+        description="ChatGPT 批量自动注册工具",
+    )
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="非交互模式；不进行 input() 询问。",
+    )
+    parser.add_argument(
+        "--upload-targets",
+        help="上传目标: none/cpa/sub2api/both（也支持 cpa,sub2api）",
+    )
+    parser.add_argument(
+        "--proxy",
+        help="代理地址；传空字符串可强制不使用代理。",
+    )
+    parser.add_argument(
+        "--total-accounts",
+        type=int,
+        help="注册账号数量（>0）。",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        help="并发数（>0）。",
+    )
+    parser.add_argument(
+        "--sub2api-api-base",
+        help="Sub2API 地址，例如 https://sub2api.example.com",
+    )
+    parser.add_argument(
+        "--sub2api-admin-api-key",
+        help="Sub2API Admin API Key（x-api-key）。",
+    )
+    parser.add_argument(
+        "--sub2api-bearer-token",
+        help="Sub2API Bearer Token（Authorization）。",
+    )
+    parser.add_argument(
+        "--sub2api-group-id",
+        type=int,
+        help="Sub2API 分组 ID（openai 平台）。",
+    )
+    parser.add_argument(
+        "--sub2api-auto-select-first-group",
+        action="store_true",
+        help="非交互模式下，若未提供 group-id，则自动选择第一个 openai 分组。",
+    )
+    return parser
 
-    # 检查邮箱配置
-    provider_error = _email_provider_config_error()
-    if provider_error:
-        print(f"\n⚠️  警告: {provider_error}")
-        if EMAIL_PROVIDER == "duckmail":
-            print("   请编辑 config.json 设置 duckmail_bearer，或设置环境变量:")
-            print("   Windows: set DUCKMAIL_BEARER=your_api_key_here")
-            print("   Linux/Mac: export DUCKMAIL_BEARER='your_api_key_here'")
-        print("\n   按 Enter 继续尝试运行 (可能会失败)...")
-        input()
 
-    # 交互式代理配置
+def _apply_cli_overrides(args):
+    global SUB2API_API_BASE
+    global SUB2API_ADMIN_API_KEY
+    global SUB2API_BEARER_TOKEN
+    global SUB2API_GROUP_IDS
+
+    if args.sub2api_api_base is not None:
+        SUB2API_API_BASE = args.sub2api_api_base.strip().rstrip("/")
+    if args.sub2api_admin_api_key is not None:
+        SUB2API_ADMIN_API_KEY = args.sub2api_admin_api_key.strip()
+    if args.sub2api_bearer_token is not None:
+        SUB2API_BEARER_TOKEN = args.sub2api_bearer_token.strip()
+    if args.sub2api_group_id is not None:
+        SUB2API_GROUP_IDS = [args.sub2api_group_id]
+
+
+def _resolve_proxy_from_inputs(non_interactive, proxy_arg):
+    if proxy_arg is not None:
+        proxy = proxy_arg.strip() or None
+        if proxy:
+            print(f"[Info] 使用代理: {proxy}")
+        else:
+            print("[Info] 不使用代理")
+        return proxy
+
     proxy = DEFAULT_PROXY
+    env_proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") \
+             or os.environ.get("ALL_PROXY") or os.environ.get("all_proxy")
+
+    if non_interactive:
+        proxy = proxy or env_proxy or None
+        if proxy:
+            print(f"[Info] 使用代理: {proxy}")
+        else:
+            print("[Info] 不使用代理")
+        return proxy
+
     if proxy:
         print(f"[Info] 检测到默认代理: {proxy}")
         use_default = input("使用此代理? (Y/n): ").strip().lower()
         if use_default == "n":
             proxy = input("输入代理地址 (留空=不使用代理): ").strip() or None
-    else:
-        env_proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") \
-                 or os.environ.get("ALL_PROXY") or os.environ.get("all_proxy")
-        if env_proxy:
-            print(f"[Info] 检测到环境变量代理: {env_proxy}")
-            use_env = input("使用此代理? (Y/n): ").strip().lower()
-            if use_env == "n":
-                proxy = input("输入代理地址 (留空=不使用代理): ").strip() or None
-            else:
-                proxy = env_proxy
+    elif env_proxy:
+        print(f"[Info] 检测到环境变量代理: {env_proxy}")
+        use_env = input("使用此代理? (Y/n): ").strip().lower()
+        if use_env == "n":
+            proxy = input("输入代理地址 (留空=不使用代理): ").strip() or None
         else:
-            proxy = input("输入代理地址 (如 http://127.0.0.1:7890，留空=不使用代理): ").strip() or None
+            proxy = env_proxy
+    else:
+        proxy = input("输入代理地址 (如 http://127.0.0.1:7890，留空=不使用代理): ").strip() or None
 
     if proxy:
         print(f"[Info] 使用代理: {proxy}")
     else:
         print("[Info] 不使用代理")
+    return proxy
 
-    # 输入注册数量
-    count_input = input(f"\n注册账号数量 (默认 {DEFAULT_TOTAL_ACCOUNTS}): ").strip()
-    total_accounts = int(count_input) if count_input.isdigit() and int(count_input) > 0 else DEFAULT_TOTAL_ACCOUNTS
 
-    workers_input = input("并发数 (默认 3): ").strip()
-    max_workers = int(workers_input) if workers_input.isdigit() and int(workers_input) > 0 else 3
+def _resolve_count_and_workers(non_interactive, total_accounts_arg, workers_arg):
+    if total_accounts_arg is not None:
+        if total_accounts_arg <= 0:
+            raise ValueError("--total-accounts 必须大于 0")
+        total_accounts = total_accounts_arg
+    elif non_interactive:
+        total_accounts = DEFAULT_TOTAL_ACCOUNTS
+    else:
+        count_input = input(f"\n注册账号数量 (默认 {DEFAULT_TOTAL_ACCOUNTS}): ").strip()
+        total_accounts = int(count_input) if count_input.isdigit() and int(count_input) > 0 else DEFAULT_TOTAL_ACCOUNTS
 
-    run_batch(total_accounts=total_accounts, output_file=DEFAULT_OUTPUT_FILE,
-              max_workers=max_workers, proxy=proxy)
+    if workers_arg is not None:
+        if workers_arg <= 0:
+            raise ValueError("--workers 必须大于 0")
+        max_workers = workers_arg
+    elif non_interactive:
+        max_workers = 3
+    else:
+        workers_input = input("并发数 (默认 3): ").strip()
+        max_workers = int(workers_input) if workers_input.isdigit() and int(workers_input) > 0 else 3
+
+    return total_accounts, max_workers
+
+
+def main(argv=None):
+    try:
+        parser = _build_cli_parser()
+        args = parser.parse_args(argv)
+        _apply_cli_overrides(args)
+
+        if args.upload_targets:
+            try:
+                _set_upload_targets_from_text(args.upload_targets)
+            except ValueError as e:
+                print(f"❌ {e}")
+                return 2
+
+        provider_name = _provider_label(EMAIL_PROVIDER)
+        upload_targets_desc = _upload_targets_desc(UPLOAD_TARGET_SET)
+        print("=" * 60)
+        print(f"  ChatGPT 批量自动注册工具 ({provider_name} 邮箱)")
+        print(f"  Token 上传目标: {upload_targets_desc}")
+        print("=" * 60)
+
+        # 检查邮箱配置
+        provider_error = _email_provider_config_error()
+        if provider_error:
+            print(f"\n⚠️  警告: {provider_error}")
+            if EMAIL_PROVIDER == "duckmail":
+                print("   请编辑 config.json 设置 duckmail_bearer，或设置环境变量:")
+                print("   Windows: set DUCKMAIL_BEARER=your_api_key_here")
+                print("   Linux/Mac: export DUCKMAIL_BEARER='your_api_key_here'")
+            if args.non_interactive:
+                print("❌ 非交互模式下检测到邮箱配置错误，已终止。")
+                return 2
+            print("\n   按 Enter 继续尝试运行 (可能会失败)...")
+            input()
+
+        try:
+            if not args.upload_targets and not args.non_interactive:
+                _prompt_upload_targets()
+        except RuntimeError as e:
+            print(f"❌ {e}")
+            return 2
+
+        print(f"[Info] 本次 Token 上传目标: {_upload_targets_desc(UPLOAD_TARGET_SET)}")
+        if "sub2api" in UPLOAD_TARGET_SET:
+            try:
+                ok = _prepare_sub2api_group_binding(
+                    interactive=not args.non_interactive,
+                    selected_group_id=args.sub2api_group_id,
+                    auto_select_first=args.sub2api_auto_select_first_group,
+                )
+            except RuntimeError as e:
+                print(f"❌ {e}")
+                return 2
+            if not ok:
+                print("⚠️ Sub2API 上传未完成配置，本次任务已中止。")
+                return 2
+
+        proxy = _resolve_proxy_from_inputs(args.non_interactive, args.proxy)
+        try:
+            total_accounts, max_workers = _resolve_count_and_workers(
+                args.non_interactive,
+                args.total_accounts,
+                args.workers,
+            )
+        except ValueError as e:
+            print(f"❌ {e}")
+            return 2
+
+        run_batch(total_accounts=total_accounts, output_file=DEFAULT_OUTPUT_FILE,
+                  max_workers=max_workers, proxy=proxy)
+        return 0
+    except KeyboardInterrupt:
+        print("\n[Info] 用户中断，已退出。")
+        return 130
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -48,15 +48,22 @@
 ### 系统与软件
 
 - Python `3.10+`
+- `uv`（Python 包与虚拟环境管理）
 - 可访问目标站点的网络环境（必要时配代理）
 
 ### 安装依赖
 
 ```bash
-pip install curl_cffi
+uv sync
 ```
 
 ## 2. 安装与启动
+
+### 入口说明（统一口径）
+
+- 默认给用户的运行命令只有一个：`uv run chatgpt-register`
+- 该命令读取仓库根目录的 `config.json`（即与 `chatgpt_register.py` 同级）
+- `codex/protocol_keygen.py` 属于子目录下的独立工具，不是本 README 的常规使用入口
 
 ### 第一步：复制配置文件
 
@@ -79,14 +86,23 @@ copy config.example.json config.json
 ### 第三步：运行脚本
 
 ```bash
-python chatgpt_register.py
+uv run chatgpt-register
+```
+
+查看命令行帮助：
+
+```bash
+uv run chatgpt-register --help
 ```
 
 脚本会交互询问：
 
+- Token 上传目标（支持 TUI：`↑/↓` 选择，`Enter` 确认）
 - 代理地址
 - 注册数量
 - 并发数
+
+说明：TUI 选择依赖 `questionary`，未安装时脚本会直接报错退出（不再回退为手动输入序号）。
 
 ## 3. 小白路线A：用 DuckMail 跑通
 
@@ -127,7 +143,7 @@ curl -s https://api.duckmail.sbs/domains \
 ### 步骤 4：正式跑脚本
 
 ```bash
-python chatgpt_register.py
+uv run chatgpt-register
 ```
 
 第一次建议输入：
@@ -178,7 +194,7 @@ curl -I https://mail.example.com
 ### 步骤 3：运行脚本
 
 ```bash
-python chatgpt_register.py
+uv run chatgpt-register
 ```
 
 建议首跑参数：
@@ -197,9 +213,24 @@ Mailcow 模式下，脚本在任务结束后会尝试删除临时邮箱。你会
 
 脚本交互顺序如下：
 
-1. 代理设置
-2. 注册账号数量（默认读取 `config.json` 的 `total_accounts`）
-3. 并发数（默认 `3`）
+1. Token 上传目标（`none/cpa/sub2api/both`，默认读配置）
+2. 若包含 `sub2api`：拉取 `openai` 分组并让你选择一个分组
+3. 代理设置
+4. 注册账号数量（默认读取 `config.json` 的 `total_accounts`）
+5. 并发数（默认 `3`）
+
+也支持非交互参数（适合脚本化/CI），例如：
+
+```bash
+uv run chatgpt-register \
+  --non-interactive \
+  --upload-targets sub2api \
+  --sub2api-api-base https://sub2api.example.com \
+  --sub2api-admin-api-key admin_xxx \
+  --sub2api-group-id 6 \
+  --total-accounts 5 \
+  --workers 3
+```
 
 代理输入示例：
 
@@ -233,8 +264,15 @@ Mailcow 模式下，脚本在任务结束后会尝试删除临时邮箱。你会
 | `ak_file` | `ak.txt` | 否 | Access Token 输出文件 |
 | `rk_file` | `rk.txt` | 否 | Refresh Token 输出文件 |
 | `token_json_dir` | `codex_tokens` | 否 | 单账号 token JSON 输出目录 |
+| `upload_targets` | `cpa` | 否 | 上传目标：`none` / `cpa` / `sub2api` / `both`（也支持 `cpa,sub2api`） |
 | `upload_api_url` | `""` | 仅上传时必填 | CPA 上传 API 地址 |
 | `upload_api_token` | `""` | 仅上传时必填 | CPA 上传 Bearer Token |
+| `sub2api_api_base` | `""` | 上传到 Sub2API 时必填 | Sub2API 基础地址（如 `https://sub2api.example.com`） |
+| `sub2api_admin_api_key` | `""` | Sub2API 推荐填写其一 | Sub2API Admin API Key（请求头 `x-api-key`） |
+| `sub2api_bearer_token` | `""` | Sub2API 备选填写其一 | Sub2API Bearer Token（请求头 `Authorization`） |
+| `sub2api_group_ids` | `[]` | 否 | 创建 Sub2API 账号时绑定的分组 ID 列表 |
+| `sub2api_account_concurrency` | `1` | 否 | 创建 Sub2API 账号时的并发值 |
+| `sub2api_account_priority` | `1` | 否 | 创建 Sub2API 账号时的优先级 |
 
 ## 7. 环境变量覆盖
 
@@ -259,8 +297,15 @@ Mailcow 模式下，脚本在任务结束后会尝试删除临时邮箱。你会
 - `AK_FILE`
 - `RK_FILE`
 - `TOKEN_JSON_DIR`
+- `UPLOAD_TARGETS`
 - `UPLOAD_API_URL`
 - `UPLOAD_API_TOKEN`
+- `SUB2API_API_BASE`
+- `SUB2API_ADMIN_API_KEY`
+- `SUB2API_BEARER_TOKEN`
+- `SUB2API_GROUP_IDS`（逗号分隔，例如 `1,2,3`）
+- `SUB2API_ACCOUNT_CONCURRENCY`
+- `SUB2API_ACCOUNT_PRIORITY`
 
 示例（DuckMail）：
 
@@ -269,7 +314,7 @@ export EMAIL_PROVIDER=duckmail
 export DUCKMAIL_API_BASE=https://api.duckmail.sbs
 export DUCKMAIL_BEARER=dk_xxx
 export TOTAL_ACCOUNTS=5
-python chatgpt_register.py
+uv run chatgpt-register
 ```
 
 示例（Mailcow）：
@@ -281,7 +326,7 @@ export MAILCOW_API_KEY=xxxx
 export MAILCOW_DOMAIN=example.com
 export MAILCOW_IMAP_HOST=mail.example.com
 export MAILCOW_IMAP_PORT=993
-python chatgpt_register.py
+uv run chatgpt-register
 ```
 
 示例（Mail.tm）：
@@ -290,7 +335,7 @@ python chatgpt_register.py
 export EMAIL_PROVIDER=mailtm
 export MAILTM_API_BASE=https://api.mail.tm
 export TOTAL_ACCOUNTS=3
-python chatgpt_register.py
+uv run chatgpt-register
 ```
 
 ## 8. 输出文件说明
@@ -373,24 +418,27 @@ curl -I https://chatgpt.com --max-time 10
 - 将输出目录挂载到持久卷，避免容器重启丢数据
 - 对 `registered_accounts.txt` 与 token 文件做外部归档
 
-### CPA 自动上传
+### Token 自动上传（CPA / Sub2API / 双传）
 
-当 `upload_api_url` 非空时，脚本会在生成 token JSON 后自动上传。  
-需要同时配置：
+通过 `upload_targets` 控制上传目标：
 
-- `upload_api_url`
-- `upload_api_token`
+- `none`：不上传
+- `cpa`：只传 CPA
+- `sub2api`：只传 Sub2API
+- `both` 或 `cpa,sub2api`：两个都传
 
-## 11. 安全建议
+对应配置要求：
 
-- 不要把真实 `API Key / Token / 密码` 提交到仓库
-- 优先使用环境变量管理密钥
-- 定期轮换 DuckMail / Mailcow / CPA Token
-- 对输出文件（`ak.txt`、`rk.txt`、`codex_tokens/`）做访问控制
+- 传 CPA：`upload_api_url` + `upload_api_token`
+- 传 Sub2API：`sub2api_api_base` + (`sub2api_admin_api_key` 或 `sub2api_bearer_token`)
 
-## 12. 相关链接
+Sub2API 上传方式为调用其 Admin API 创建 `platform=openai`、`type=oauth` 账号。
+运行时会先拉取 `openai` 分组并让你选一个；若没有 `openai` 分组，脚本会提示先去 Sub2API 后台新建分组再重试。
+
+## 11. 相关链接
 
 - DuckMail 域名管理：`https://domain.duckmail.sbs`
 - DuckMail API：`https://api.duckmail.sbs`
+- Sub2API 仓库：`https://github.com/Wei-Shaw/sub2api`
 - CPA 文档：`https://help.router-for.me/cn/`
 - CPA 面板仓库：`https://github.com/dongshuyan/CPA-Dashboard`

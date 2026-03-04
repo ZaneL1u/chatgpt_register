@@ -1,0 +1,18 @@
+[project]
+name = "chatgpt-register"
+version = "0.1.0"
+description = "Batch ChatGPT registration tool with temporary email providers."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "curl-cffi>=0.7.0",
+  "questionary>=2.1.0",
+]
+scripts = { chatgpt-register = "chatgpt_register:main" }
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["chatgpt_register"]
