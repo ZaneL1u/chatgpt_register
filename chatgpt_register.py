@@ -7,6 +7,7 @@ ChatGPT 批量自动注册工具 (并发版) - 支持多种临时邮箱适配器
 
 import base64
 import argparse
+import builtins
 import email as email_lib
 import hashlib
 import imaplib
@@ -21,12 +22,269 @@ import threading
 import time
 import traceback
 import uuid
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from email.header import decode_header
 from typing import Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from curl_cffi import requests as curl_requests
+
+try:
+    from rich import box
+    from rich.layout import Layout
+    from rich.live import Live
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.text import Text
+
+    RICH_AVAILABLE = True
+except Exception:
+    RICH_AVAILABLE = False
+
+
+_ORIGINAL_PRINT = builtins.print
+_RUNTIME_DASHBOARD = None
+
+
+def _plain_print(*args, **kwargs):
+    _ORIGINAL_PRINT(*args, **kwargs)
+
+
+def _translate_step_to_cn(step: str):
+    mapping = {
+        "Visit homepage": "访问首页",
+        "Get CSRF": "获取 CSRF",
+        "Signin": "提交登录",
+        "Authorize": "授权跳转",
+        "Register": "提交注册",
+        "Send OTP": "发送验证码请求",
+        "Validate OTP": "校验验证码",
+        "Create Account": "创建账号",
+        "Callback": "回调确认",
+    }
+    text = str(step or "").strip()
+    for key, value in mapping.items():
+        if key in text:
+            return value
+    return text or "处理中"
+
+
+def _sanitize_status_text(text: str, limit: int = 40):
+    raw = re.sub(r"^\[[^\]]+\]\s*", "", str(text or "").strip())
+    if not raw:
+        return "处理中"
+    raw = raw.replace("\n", " ")
+    return raw if len(raw) <= limit else f"{raw[:limit - 1]}…"
+
+
+class RuntimeDashboard:
+    def __init__(self, total_accounts: int, max_workers: int, provider_name: str):
+        self.total_accounts = max(1, int(total_accounts))
+        self.max_workers = max(1, int(max_workers))
+        self.provider_name = provider_name
+        self.started_at = time.time()
+
+        self.success_count = 0
+        self.fail_count = 0
+        self.worker_states = {}
+        self.logs = deque(maxlen=400)
+
+        self._lock = threading.RLock()
+        self._last_refresh_at = 0.0
+        self._live = None
+
+    def start(self):
+        if not RICH_AVAILABLE:
+            return False
+        with self._lock:
+            self._live = Live(
+                self._build_layout(),
+                refresh_per_second=8,
+                screen=True,
+                transient=False,
+            )
+            self._live.start()
+            self._refresh(force=True)
+        return True
+
+    def stop(self):
+        with self._lock:
+            if self._live:
+                self._live.stop()
+                self._live = None
+
+    def register_worker(self, worker_id: int, tag: str = ""):
+        with self._lock:
+            item = self.worker_states.get(worker_id)
+            if item is None:
+                item = {
+                    "tag": tag or f"任务-{worker_id}",
+                    "status": "等待开始",
+                    "done": False,
+                    "result": "进行中",
+                }
+                self.worker_states[worker_id] = item
+            else:
+                if tag:
+                    item["tag"] = tag
+                item["done"] = False
+                item["result"] = "进行中"
+            self._refresh()
+
+    def update_worker(self, worker_id: int, status: str, tag: str = ""):
+        with self._lock:
+            item = self.worker_states.get(worker_id)
+            if item is None:
+                self.worker_states[worker_id] = {
+                    "tag": tag or f"任务-{worker_id}",
+                    "status": _sanitize_status_text(status),
+                    "done": False,
+                    "result": "进行中",
+                }
+            else:
+                if tag:
+                    item["tag"] = tag
+                item["status"] = _sanitize_status_text(status)
+            self._refresh()
+
+    def complete_worker(self, worker_id: int, ok: bool, status: str = ""):
+        with self._lock:
+            item = self.worker_states.get(worker_id)
+            if item is None:
+                item = {
+                    "tag": f"任务-{worker_id}",
+                    "status": "已完成",
+                    "done": True,
+                    "result": "成功" if ok else "失败",
+                }
+                self.worker_states[worker_id] = item
+            else:
+                item["done"] = True
+                item["result"] = "成功" if ok else "失败"
+                if status:
+                    item["status"] = _sanitize_status_text(status)
+            self._refresh()
+
+    def add_result(self, ok: bool):
+        with self._lock:
+            if ok:
+                self.success_count += 1
+            else:
+                self.fail_count += 1
+            self._refresh()
+
+    def log(self, message: str):
+        text = str(message or "")
+        lines = text.splitlines() or [""]
+        now_str = time.strftime("%H:%M:%S")
+        with self._lock:
+            for line in lines:
+                self.logs.append(f"{now_str} {line}")
+            self._refresh()
+
+    def _render_progress_bar(self, width: int = 26):
+        completed = self.success_count + self.fail_count
+        ratio = min(1.0, max(0.0, completed / self.total_accounts))
+        filled = int(width * ratio)
+        return f"{'█' * filled}{'░' * (width - filled)}", ratio
+
+    def _build_summary_panel(self):
+        completed = self.success_count + self.fail_count
+        elapsed = time.time() - self.started_at
+        avg = elapsed / completed if completed else 0.0
+        active_count = sum(1 for x in self.worker_states.values() if not x.get("done"))
+        pending_count = max(0, self.total_accounts - completed - active_count)
+        bar, ratio = self._render_progress_bar()
+
+        rows = [
+            f"邮箱提供者: {self.provider_name}",
+            f"并发配置: {self.max_workers} | 活跃任务: {active_count}",
+            f"成功/失败: {self.success_count}/{self.fail_count}",
+            f"待开始任务: {pending_count}",
+            f"平均耗时: {avg:.1f}s/个",
+            f"总进度: {completed}/{self.total_accounts} ({ratio * 100:.1f}%)",
+            f"[{bar}]",
+        ]
+        return Panel(Text("\n".join(rows), no_wrap=True), title="运行信息", border_style="green")
+
+    def _build_workers_panel(self):
+        table = Table(box=box.SIMPLE_HEAVY, expand=True, show_header=True)
+        table.add_column("任务", no_wrap=True, width=12)
+        table.add_column("当前动作")
+        table.add_column("结果", no_wrap=True, width=8, justify="center")
+
+        items = sorted(
+            self.worker_states.items(),
+            key=lambda kv: (1 if kv[1].get("done") else 0, kv[0]),
+        )
+        if not items:
+            table.add_row("-", "等待任务启动", "-")
+        else:
+            display_items = items[:12]
+            for worker_id, item in display_items:
+                status = item.get("status") or "处理中"
+                result = item.get("result") or "进行中"
+                style = "green" if result == "成功" else ("red" if result == "失败" else "yellow")
+                tag = item.get("tag") or f"任务-{worker_id}"
+                table.add_row(tag, status, f"[{style}]{result}[/{style}]")
+        return Panel(table, title="并发任务状态", border_style="blue")
+
+    def _build_logs_panel(self):
+        lines = list(self.logs)[-50:]
+        content = "\n".join(lines) if lines else "暂无执行日志"
+        return Panel(Text(content), title="执行日志", border_style="cyan")
+
+    def _build_layout(self):
+        layout = Layout()
+        layout.split_row(
+            Layout(name="left", size=52),
+            Layout(name="right"),
+        )
+        layout["left"].split_column(
+            Layout(name="summary", size=11),
+            Layout(name="workers"),
+        )
+        layout["left"]["summary"].update(self._build_summary_panel())
+        layout["left"]["workers"].update(self._build_workers_panel())
+        layout["right"].update(self._build_logs_panel())
+        return layout
+
+    def _refresh(self, force: bool = False):
+        if not self._live:
+            return
+        now = time.time()
+        if not force and now - self._last_refresh_at < 0.08:
+            return
+        self._live.update(self._build_layout(), refresh=True)
+        self._last_refresh_at = now
+
+
+@contextmanager
+def _route_print_to_dashboard(dashboard: Optional[RuntimeDashboard]):
+    if dashboard is None:
+        yield
+        return
+
+    old_print = builtins.print
+
+    def _dashboard_print(*args, **kwargs):
+        target_file = kwargs.get("file")
+        if target_file not in (None, sys.stdout, sys.stderr):
+            return old_print(*args, **kwargs)
+        sep = kwargs.get("sep", " ")
+        end = kwargs.get("end", "\n")
+        msg = sep.join(str(arg) for arg in args)
+        if end and end != "\n":
+            msg = f"{msg}{end.rstrip()}"
+        dashboard.log(msg.rstrip("\n"))
+
+    builtins.print = _dashboard_print
+    try:
+        yield
+    finally:
+        builtins.print = old_print
 
 
 def _as_int(value, default=0):
@@ -1610,8 +1868,9 @@ class ChatGPTRegister:
     BASE = "https://chatgpt.com"
     AUTH = "https://auth.openai.com"
 
-    def __init__(self, proxy: str = None, tag: str = ""):
+    def __init__(self, proxy: str = None, tag: str = "", worker_id: Optional[int] = None):
         self.tag = tag  # 线程标识，用于日志
+        self.worker_id = worker_id
         self.device_id = str(uuid.uuid4())
         self.auth_session_logging_id = str(uuid.uuid4())
         self.impersonate, self.chrome_major, self.chrome_full, self.ua, self.sec_ch_ua = _random_chrome_version()
@@ -1640,6 +1899,14 @@ class ChatGPTRegister:
         self.email_adapter = _build_email_adapter(self)
 
     def _log(self, step, method, url, status, body=None):
+        dashboard = _RUNTIME_DASHBOARD
+        if dashboard is not None and self.worker_id is not None:
+            dashboard.update_worker(
+                self.worker_id,
+                f"步骤: {_translate_step_to_cn(step)}",
+                tag=self.tag,
+            )
+
         prefix = f"[{self.tag}] " if self.tag else ""
         lines = [
             f"\n{'='*60}",
@@ -1657,6 +1924,10 @@ class ChatGPTRegister:
             print("\n".join(lines))
 
     def _print(self, msg):
+        dashboard = _RUNTIME_DASHBOARD
+        if dashboard is not None and self.worker_id is not None:
+            dashboard.update_worker(self.worker_id, msg, tag=self.tag)
+
         prefix = f"[{self.tag}] " if self.tag else ""
         with _print_lock:
             print(f"{prefix}{msg}")
@@ -2560,8 +2831,12 @@ def _register_one(idx, total, proxy, output_file):
     """单个注册任务 (在线程中运行)"""
     reg = None
     mailcow_email = None  # 用于 finally 清理 Mailcow 邮箱
+    dashboard = _RUNTIME_DASHBOARD
+    if dashboard is not None:
+        dashboard.register_worker(idx, tag=f"任务-{idx}")
+
     try:
-        reg = ChatGPTRegister(proxy=proxy, tag=f"{idx}")
+        reg = ChatGPTRegister(proxy=proxy, tag=f"{idx}", worker_id=idx)
 
         # 1. 创建临时邮箱
         provider_name = _provider_label(EMAIL_PROVIDER)
@@ -2569,6 +2844,8 @@ def _register_one(idx, total, proxy, output_file):
         email, email_pwd, mail_token = reg.create_temp_email()
         tag = email.split("@")[0]
         reg.tag = tag  # 更新 tag
+        if dashboard is not None:
+            dashboard.update_worker(idx, "临时邮箱创建成功", tag=tag)
 
         if EMAIL_PROVIDER == "mailcow":
             mailcow_email = email  # 标记需要清理
@@ -2610,13 +2887,17 @@ def _register_one(idx, total, proxy, output_file):
 
         with _print_lock:
             print(f"\n[OK] [{tag}] {email} 注册成功!")
+        if dashboard is not None:
+            dashboard.complete_worker(idx, True, status="注册成功")
         return True, email, None
 
     except Exception as e:
         error_msg = str(e)
         with _print_lock:
             print(f"\n[FAIL] [{idx}] 注册失败: {error_msg}")
-            traceback.print_exc()
+            print(traceback.format_exc())
+        if dashboard is not None:
+            dashboard.complete_worker(idx, False, status=f"失败: {error_msg}")
         return False, None, error_msg
 
     finally:
@@ -2637,6 +2918,7 @@ def _register_one(idx, total, proxy, output_file):
 def run_batch(total_accounts: int = 3, output_file="registered_accounts.txt",
               max_workers=3, proxy=None):
     """并发批量注册"""
+    global _RUNTIME_DASHBOARD
 
     provider_error = _email_provider_config_error()
     if provider_error:
@@ -2645,53 +2927,79 @@ def run_batch(total_accounts: int = 3, output_file="registered_accounts.txt",
 
     provider_name = _provider_label(EMAIL_PROVIDER)
     actual_workers = min(max_workers, total_accounts)
-    print(f"\n{'#'*60}")
-    print(f"  ChatGPT 批量自动注册 ({provider_name} 邮箱)")
-    print(f"  注册数量: {total_accounts} | 并发数: {actual_workers}")
-    print(f"  提供者配置: {_email_provider_endpoint_hint()}")
-    print(f"  OAuth: {'开启' if ENABLE_OAUTH else '关闭'} | required: {'是' if OAUTH_REQUIRED else '否'}")
-    if ENABLE_OAUTH:
-        print(f"  OAuth Issuer: {OAUTH_ISSUER}")
-        print(f"  OAuth Client: {OAUTH_CLIENT_ID}")
-        print(f"  Token输出: {TOKEN_JSON_DIR}/, {AK_FILE}, {RK_FILE}")
-    print(f"  输出文件: {output_file}")
-    print(f"{'#'*60}\n")
 
+    dashboard = None
+    if RICH_AVAILABLE and sys.stdin.isatty() and sys.stdout.isatty():
+        dashboard = RuntimeDashboard(
+            total_accounts=total_accounts,
+            max_workers=actual_workers,
+            provider_name=provider_name,
+        )
+        dashboard.start()
+    elif not RICH_AVAILABLE:
+        print("⚠️ 未安装 rich，已回退为普通日志输出。执行 `uv sync` 可启用实时面板。")
+
+    _RUNTIME_DASHBOARD = dashboard
     success_count = 0
     fail_count = 0
     start_time = time.time()
 
-    with ThreadPoolExecutor(max_workers=actual_workers) as executor:
-        futures = {}
-        for idx in range(1, total_accounts + 1):
-            future = executor.submit(
-                _register_one, idx, total_accounts, proxy, output_file
-            )
-            futures[future] = idx
+    try:
+        with _route_print_to_dashboard(dashboard):
+            print(f"\n{'#'*60}")
+            print(f"  ChatGPT 批量自动注册 ({provider_name} 邮箱)")
+            print(f"  注册数量: {total_accounts} | 并发数: {actual_workers}")
+            print(f"  提供者配置: {_email_provider_endpoint_hint()}")
+            print(f"  OAuth: {'开启' if ENABLE_OAUTH else '关闭'} | required: {'是' if OAUTH_REQUIRED else '否'}")
+            if ENABLE_OAUTH:
+                print(f"  OAuth Issuer: {OAUTH_ISSUER}")
+                print(f"  OAuth Client: {OAUTH_CLIENT_ID}")
+                print(f"  Token输出: {TOKEN_JSON_DIR}/, {AK_FILE}, {RK_FILE}")
+            print(f"  输出文件: {output_file}")
+            print(f"{'#'*60}\n")
 
-        for future in as_completed(futures):
-            idx = futures[future]
-            try:
-                ok, email, err = future.result()
-                if ok:
-                    success_count += 1
-                else:
-                    fail_count += 1
-                    print(f"  [账号 {idx}] 失败: {err}")
-            except Exception as e:
-                fail_count += 1
-                with _print_lock:
-                    print(f"[FAIL] 账号 {idx} 线程异常: {e}")
+            with ThreadPoolExecutor(max_workers=actual_workers) as executor:
+                futures = {}
+                for idx in range(1, total_accounts + 1):
+                    future = executor.submit(
+                        _register_one, idx, total_accounts, proxy, output_file
+                    )
+                    futures[future] = idx
 
-    elapsed = time.time() - start_time
-    avg = elapsed / total_accounts if total_accounts else 0
-    print(f"\n{'#'*60}")
-    print(f"  注册完成! 耗时 {elapsed:.1f} 秒")
-    print(f"  总数: {total_accounts} | 成功: {success_count} | 失败: {fail_count}")
-    print(f"  平均速度: {avg:.1f} 秒/个")
-    if success_count > 0:
-        print(f"  结果文件: {output_file}")
-    print(f"{'#'*60}")
+                for future in as_completed(futures):
+                    idx = futures[future]
+                    try:
+                        ok, email, err = future.result()
+                        if ok:
+                            success_count += 1
+                            if dashboard is not None:
+                                dashboard.add_result(True)
+                        else:
+                            fail_count += 1
+                            if dashboard is not None:
+                                dashboard.add_result(False)
+                            print(f"  [账号 {idx}] 失败: {err}")
+                    except Exception as e:
+                        fail_count += 1
+                        if dashboard is not None:
+                            dashboard.add_result(False)
+                            dashboard.complete_worker(idx, False, status=f"线程异常: {e}")
+                        with _print_lock:
+                            print(f"[FAIL] 账号 {idx} 线程异常: {e}")
+    finally:
+        elapsed = time.time() - start_time
+        avg = elapsed / total_accounts if total_accounts else 0
+        _RUNTIME_DASHBOARD = None
+        if dashboard is not None:
+            dashboard.stop()
+
+        _plain_print(f"\n{'#'*60}")
+        _plain_print(f"  注册完成! 耗时 {elapsed:.1f} 秒")
+        _plain_print(f"  总数: {total_accounts} | 成功: {success_count} | 失败: {fail_count}")
+        _plain_print(f"  平均速度: {avg:.1f} 秒/个")
+        if success_count > 0:
+            _plain_print(f"  结果文件: {output_file}")
+        _plain_print(f"{'#'*60}")
 
 
 def _build_cli_parser():

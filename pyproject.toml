@@ -7,6 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
   "curl-cffi>=0.7.0",
   "questionary>=2.1.0",
+  "rich>=13.7.0",
 ]
 scripts = { chatgpt-register = "chatgpt_register:main" }
 
