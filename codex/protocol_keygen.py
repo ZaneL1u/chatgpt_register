@@ -62,9 +62,12 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # =================== 配置加载 ===================
 
+
 def load_config():
     """加载外部配置文件"""
-    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+    config_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "config.json"
+    )
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"config.json 未找到: {config_path}")
     with open(config_path, "r", encoding="utf-8") as f:
@@ -87,7 +90,9 @@ CF_ADMIN_PASSWORD = _config.get("cf_admin_password", "")
 # OAuth 配置
 OAUTH_ISSUER = _config.get("oauth_issuer", "https://auth.openai.com")
 OAUTH_CLIENT_ID = _config.get("oauth_client_id", "app_EMoamEEZ73f0CkXaXp7hrann")
-OAUTH_REDIRECT_URI = _config.get("oauth_redirect_uri", "http://localhost:1455/auth/callback")
+OAUTH_REDIRECT_URI = _config.get(
+    "oauth_redirect_uri", "http://localhost:1455/auth/callback"
+)
 
 # 上传配置
 UPLOAD_API_URL = _config.get("upload_api_url", "")
@@ -110,6 +115,7 @@ CHATGPT_BASE = "https://chatgpt.com"
 
 
 # =================== HTTP 会话管理 ===================
+
 
 def create_session():
     """创建带重试策略的 HTTP 会话"""
@@ -188,13 +194,44 @@ def generate_random_password(length=16):
 def generate_random_name():
     """随机生成自然的英文姓名"""
     first = [
-        "James", "Robert", "John", "Michael", "David", "William", "Richard",
-        "Mary", "Jennifer", "Linda", "Elizabeth", "Susan", "Jessica", "Sarah",
-        "Emily", "Emma", "Olivia", "Sophia", "Liam", "Noah", "Oliver", "Ethan",
+        "James",
+        "Robert",
+        "John",
+        "Michael",
+        "David",
+        "William",
+        "Richard",
+        "Mary",
+        "Jennifer",
+        "Linda",
+        "Elizabeth",
+        "Susan",
+        "Jessica",
+        "Sarah",
+        "Emily",
+        "Emma",
+        "Olivia",
+        "Sophia",
+        "Liam",
+        "Noah",
+        "Oliver",
+        "Ethan",
     ]
     last = [
-        "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller",
-        "Davis", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Martin",
+        "Smith",
+        "Johnson",
+        "Williams",
+        "Brown",
+        "Jones",
+        "Garcia",
+        "Miller",
+        "Davis",
+        "Wilson",
+        "Anderson",
+        "Thomas",
+        "Taylor",
+        "Moore",
+        "Martin",
     ]
     return random.choice(first), random.choice(last)
 
@@ -211,8 +248,8 @@ def generate_datadog_trace():
     """生成 Datadog APM 追踪头（从 cURL 中逆向提取的格式）"""
     trace_id = str(random.getrandbits(64))
     parent_id = str(random.getrandbits(64))
-    trace_hex = format(int(trace_id), '016x')
-    parent_hex = format(int(parent_id), '016x')
+    trace_hex = format(int(trace_id), "016x")
+    parent_hex = format(int(parent_id), "016x")
     return {
         "traceparent": f"00-0000000000000000{trace_hex}-{parent_hex}-01",
         "tracestate": "dd=s:1;o:rum",
@@ -225,14 +262,16 @@ def generate_datadog_trace():
 
 def generate_pkce():
     """生成 PKCE code_verifier 和 code_challenge"""
-    code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(64)).rstrip(b"=").decode("ascii")
+    code_verifier = (
+        base64.urlsafe_b64encode(secrets.token_bytes(64)).rstrip(b"=").decode("ascii")
+    )
     digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
     code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
     return code_verifier, code_challenge
 
 
 # =================== Sentinel Token 逆向生成 ===================
-# 
+#
 # 以下代码基于对 sentinel.openai.com 的 SDK JS 代码的逆向分析：
 #   https://sentinel.openai.com/sentinel/20260124ceb8/sdk.js
 #
@@ -241,7 +280,7 @@ def generate_pkce():
 #   2. _runCheck(startTime, seed, difficulty, config, nonce) → PoW 计算
 #      a) config[3] = nonce（第4个元素设为当前尝试次数）
 #      b) config[9] = performance.now() - startTime（耗时）
-#      c) data = base64(JSON.stringify(config))  
+#      c) data = base64(JSON.stringify(config))
 #      d) hash = fnv1a_32(seed + data)
 #      e) 若 hash 的 hex 前缀 ≤ difficulty → 返回 data + "~S"
 #   3. 最终 token = "gAAAAAB" + answer
@@ -253,10 +292,11 @@ def generate_pkce():
 #   然后做 xorshift 混合 + 转 8 位 hex
 #
 
+
 class SentinelTokenGenerator:
     """
     Sentinel Token 纯 Python 生成器
-    
+
     通过逆向 sentinel SDK 的 PoW 算法，
     纯 Python 构造合法的 openai-sentinel-token。
     """
@@ -273,12 +313,12 @@ class SentinelTokenGenerator:
     def _fnv1a_32(text):
         """
         FNV-1a 32位哈希算法（从 SDK JS 逆向还原）
-        
+
         逆向来源：SDK 中的匿名函数，特征码：
           e = 2166136261  (FNV offset basis)
           e ^= t.charCodeAt(r)
           e = Math.imul(e, 16777619) >>> 0  (FNV prime)
-          
+
         最后做 xorshift 混合（murmurhash3 风格的 finalizer）：
           e ^= e >>> 16
           e = Math.imul(e, 2246822507) >>> 0
@@ -291,23 +331,23 @@ class SentinelTokenGenerator:
             code = ord(ch)
             h ^= code
             # Math.imul(h, 16777619) >>> 0 模拟无符号32位乘法
-            h = ((h * 16777619) & 0xFFFFFFFF)
+            h = (h * 16777619) & 0xFFFFFFFF
 
         # xorshift 混合（murmurhash3 finalizer）
-        h ^= (h >> 16)
-        h = ((h * 2246822507) & 0xFFFFFFFF)
-        h ^= (h >> 13)
-        h = ((h * 3266489909) & 0xFFFFFFFF)
-        h ^= (h >> 16)
+        h ^= h >> 16
+        h = (h * 2246822507) & 0xFFFFFFFF
+        h ^= h >> 13
+        h = (h * 3266489909) & 0xFFFFFFFF
+        h ^= h >> 16
         h = h & 0xFFFFFFFF
 
         # 转为8位 hex 字符串，左补零
-        return format(h, '08x')
+        return format(h, "08x")
 
     def _get_config(self):
         """
         构造浏览器环境数据数组（_getConfig 方法逆向还原）
-        
+
         SDK 中的元素对应关系（按索引）：
           [0]  screen.width + screen.height     → "1920x1080" 格式
           [1]  new Date().toString()             → 时间字符串
@@ -333,7 +373,9 @@ class SentinelTokenGenerator:
         screen_info = "1920x1080"
         now = datetime.now(timezone.utc)
         # 格式化为 JS Date.toString() 格式
-        date_str = now.strftime("%a %b %d %Y %H:%M:%S GMT+0000 (Coordinated Universal Time)")
+        date_str = now.strftime(
+            "%a %b %d %Y %H:%M:%S GMT+0000 (Coordinated Universal Time)"
+        )
         js_heap_limit = 4294705152  # Chrome 典型值
         nav_random1 = random.random()
         ua = USER_AGENT
@@ -347,43 +389,62 @@ class SentinelTokenGenerator:
         nav_random2 = random.random()
         # 模拟随机 navigator 属性
         nav_props = [
-            "vendorSub", "productSub", "vendor", "maxTouchPoints",
-            "scheduling", "userActivation", "doNotTrack", "geolocation",
-            "connection", "plugins", "mimeTypes", "pdfViewerEnabled",
-            "webkitTemporaryStorage", "webkitPersistentStorage",
-            "hardwareConcurrency", "cookieEnabled", "credentials",
-            "mediaDevices", "permissions", "locks", "ink",
+            "vendorSub",
+            "productSub",
+            "vendor",
+            "maxTouchPoints",
+            "scheduling",
+            "userActivation",
+            "doNotTrack",
+            "geolocation",
+            "connection",
+            "plugins",
+            "mimeTypes",
+            "pdfViewerEnabled",
+            "webkitTemporaryStorage",
+            "webkitPersistentStorage",
+            "hardwareConcurrency",
+            "cookieEnabled",
+            "credentials",
+            "mediaDevices",
+            "permissions",
+            "locks",
+            "ink",
         ]
         nav_prop = random.choice(nav_props)
         # 模拟属性值
         nav_val = f"{nav_prop}−undefined"  # SDK 用 − (U+2212) 而非 - (U+002D)
-        doc_key = random.choice(["location", "implementation", "URL", "documentURI", "compatMode"])
-        win_key = random.choice(["Object", "Function", "Array", "Number", "parseFloat", "undefined"])
+        doc_key = random.choice(
+            ["location", "implementation", "URL", "documentURI", "compatMode"]
+        )
+        win_key = random.choice(
+            ["Object", "Function", "Array", "Number", "parseFloat", "undefined"]
+        )
         perf_now = random.uniform(1000, 50000)
         hardware_concurrency = random.choice([4, 8, 12, 16])
         # 模拟 performance.timeOrigin（毫秒级 Unix 时间戳）
         time_origin = time.time() * 1000 - perf_now
 
         config = [
-            screen_info,           # [0] 屏幕尺寸
-            date_str,              # [1] 时间
-            js_heap_limit,         # [2] 内存限制
-            nav_random1,           # [3] 占位，后被 nonce 替换
-            ua,                    # [4] UserAgent
-            script_src,            # [5] script src
-            script_version,        # [6] 脚本版本
-            data_build,            # [7] 构建版本
-            language,              # [8] 语言
-            languages,             # [9] 占位，后被耗时替换
-            nav_random2,           # [10] 随机数
-            nav_val,               # [11] navigator 属性
-            doc_key,               # [12] document key
-            win_key,               # [13] window key
-            perf_now,              # [14] performance.now
-            self.sid,              # [15] 会话 UUID
-            "",                    # [16] URL 参数
+            screen_info,  # [0] 屏幕尺寸
+            date_str,  # [1] 时间
+            js_heap_limit,  # [2] 内存限制
+            nav_random1,  # [3] 占位，后被 nonce 替换
+            ua,  # [4] UserAgent
+            script_src,  # [5] script src
+            script_version,  # [6] 脚本版本
+            data_build,  # [7] 构建版本
+            language,  # [8] 语言
+            languages,  # [9] 占位，后被耗时替换
+            nav_random2,  # [10] 随机数
+            nav_val,  # [11] navigator 属性
+            doc_key,  # [12] document key
+            win_key,  # [13] window key
+            perf_now,  # [14] performance.now
+            self.sid,  # [15] 会话 UUID
+            "",  # [16] URL 参数
             hardware_concurrency,  # [17] CPU 核心数
-            time_origin,           # [18] 时间起点
+            time_origin,  # [18] 时间起点
         ]
         return config
 
@@ -392,21 +453,21 @@ class SentinelTokenGenerator:
         """
         模拟 SDK 的 E() 函数：JSON.stringify → TextEncoder.encode → btoa
         """
-        json_str = json.dumps(data, separators=(',', ':'), ensure_ascii=False)
-        encoded = json_str.encode('utf-8')
-        return base64.b64encode(encoded).decode('ascii')
+        json_str = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+        encoded = json_str.encode("utf-8")
+        return base64.b64encode(encoded).decode("ascii")
 
     def _run_check(self, start_time, seed, difficulty, config, nonce):
         """
         单次 PoW 检查（_runCheck 方法逆向还原）
-        
+
         参数:
             start_time: 起始时间（秒）
             seed: PoW 种子字符串
             difficulty: 难度字符串（hex 前缀阈值）
             config: 环境配置数组
             nonce: 当前尝试序号
-            
+
         返回:
             成功时返回 base64(config) + "~S"
             失败时返回 None
@@ -432,11 +493,11 @@ class SentinelTokenGenerator:
     def generate_token(self, seed=None, difficulty=None):
         """
         生成 sentinel token（完整 PoW 流程）
-        
+
         参数:
             seed: PoW 种子（来自服务端的 proofofwork.seed）
             difficulty: 难度值（来自服务端的 proofofwork.difficulty）
-            
+
         返回:
             格式为 "gAAAAAB..." 的 sentinel token 字符串
         """
@@ -444,7 +505,6 @@ class SentinelTokenGenerator:
         if seed is None:
             seed = self.requirements_seed
             difficulty = difficulty or "0"
-
 
         start_time = time.time()
 
@@ -454,7 +514,7 @@ class SentinelTokenGenerator:
             result = self._run_check(start_time, seed, difficulty, config, i)
             if result:
                 elapsed = time.time() - start_time
-                print(f"  ✅ PoW 完成: {i+1} 次迭代, 耗时 {elapsed:.2f}s")
+                print(f"  ✅ PoW 完成: {i + 1} 次迭代, 耗时 {elapsed:.2f}s")
                 return "gAAAAAB" + result
 
         # PoW 失败（超过最大尝试次数），返回错误 token
@@ -464,7 +524,7 @@ class SentinelTokenGenerator:
     def generate_requirements_token(self):
         """
         生成 requirements token（不需要服务端参数）
-        
+
         这是 SDK 中 getRequirementsToken() 的还原。
         用于不需要服务端 seed 的场景（如注册页面初始化）。
         """
@@ -476,6 +536,7 @@ class SentinelTokenGenerator:
 
 
 # =================== Cloudflare 临时邮箱 ===================
+
 
 def create_temp_email(session):
     """通过 Cloudflare Worker 创建临时邮箱"""
@@ -491,8 +552,12 @@ def create_temp_email(session):
         res = session.post(
             f"https://{CF_WORKER_DOMAIN}/admin/new_address",
             json={"enablePrefix": True, "name": name, "domain": CF_EMAIL_DOMAIN},
-            headers={"x-admin-auth": CF_ADMIN_PASSWORD, "Content-Type": "application/json"},
-            timeout=10, verify=False,
+            headers={
+                "x-admin-auth": CF_ADMIN_PASSWORD,
+                "Content-Type": "application/json",
+            },
+            timeout=10,
+            verify=False,
         )
         if res.status_code == 200:
             data = res.json()
@@ -514,7 +579,8 @@ def fetch_emails(session, email, cf_token):
             f"https://{CF_WORKER_DOMAIN}/api/mails",
             params={"limit": 10, "offset": 0},
             headers={"Authorization": f"Bearer {cf_token}"},
-            verify=False, timeout=30,
+            verify=False,
+            timeout=30,
         )
         if res.status_code == 200:
             return res.json().get("results", [])
@@ -528,15 +594,17 @@ def extract_verification_code(content):
     if not content:
         return None
     # 策略1：HTML body 样式匹配
-    m = re.search(r'background-color:\s*#F3F3F3[^>]*>[\s\S]*?(\d{6})[\s\S]*?</p>', content)
+    m = re.search(
+        r"background-color:\s*#F3F3F3[^>]*>[\s\S]*?(\d{6})[\s\S]*?</p>", content
+    )
     if m:
         return m.group(1)
     # 策略2：Subject
-    m = re.search(r'Subject:.*?(\d{6})', content)
+    m = re.search(r"Subject:.*?(\d{6})", content)
     if m and m.group(1) != "177010":
         return m.group(1)
     # 策略3：通用正则
-    for pat in [r'>\s*(\d{6})\s*<', r'(?<![#&])\b(\d{6})\b']:
+    for pat in [r">\s*(\d{6})\s*<", r"(?<![#&])\b(\d{6})\b"]:
         for code in re.findall(pat, content):
             if code != "177010":
                 return code
@@ -570,7 +638,7 @@ def wait_for_verification_code(session, email, cf_token, timeout=120):
         if emails:
             if poll_count <= 3:
                 print(f"    第{poll_count}次轮询: 收到 {len(emails)} 封邮件")
-            for item in (emails or []):
+            for item in emails or []:
                 if not isinstance(item, dict):
                     continue
                 if item.get("id") in old_ids:
@@ -594,6 +662,7 @@ def wait_for_verification_code(session, email, cf_token, timeout=120):
 
 # =================== 协议注册核心流程（纯 HTTP，零浏览器） ===================
 
+
 class ProtocolRegistrar:
     """
     协议注册机核心类 v3 — 纯 HTTP 实现
@@ -601,7 +670,7 @@ class ProtocolRegistrar:
     架构：
       全部步骤均通过 requests 构造 HTTP 请求完成。
       Sentinel token 通过逆向的 PoW 算法纯 Python 生成。
-      
+
     流程（基于浏览器抓包验证的真实 API 链）：
       步骤0:   OAuth 会话初始化 → 获取 login_session cookie（纯 HTTP 302 跟随）
       步骤1+2: 注册账号         → POST /api/accounts/user/register {username, password}
@@ -621,7 +690,7 @@ class ProtocolRegistrar:
     def _build_headers(self, referer, with_sentinel=False):
         """
         构造完整的 API 请求头
-        
+
         参数:
             referer: 页面来源 URL
             with_sentinel: 是否附加 sentinel token
@@ -687,7 +756,9 @@ class ProtocolRegistrar:
             "prompt": "login",
         }
 
-        authorize_url = f"{OPENAI_AUTH_BASE}/oauth/authorize?{urlencode(authorize_params)}"
+        authorize_url = (
+            f"{OPENAI_AUTH_BASE}/oauth/authorize?{urlencode(authorize_params)}"
+        )
 
         # ===== 步骤0a: GET /oauth/authorize → 获取 login_session cookie =====
         print("\n  --- [步骤0a] GET /oauth/authorize ---")
@@ -713,19 +784,21 @@ class ProtocolRegistrar:
             print(f"  响应预览: {resp.text[:300]}")
             return False
 
-
-
         # ===== 步骤0b: POST /api/accounts/authorize/continue → 提交邮箱 =====
         print("\n  --- [步骤0b] POST /api/accounts/authorize/continue ---")
 
         # 构造请求头（参考 perform_codex_oauth_login_http 的步骤2）
         headers = dict(COMMON_HEADERS)
-        headers["referer"] = f"{OPENAI_AUTH_BASE}/create-account"  # 注册流程用 /create-account
+        headers["referer"] = (
+            f"{OPENAI_AUTH_BASE}/create-account"  # 注册流程用 /create-account
+        )
         headers["oai-device-id"] = self.device_id
         headers.update(generate_datadog_trace())
 
         # 获取 authorize_continue 的 sentinel token
-        sentinel_token = build_sentinel_token(self.session, self.device_id, flow="authorize_continue")
+        sentinel_token = build_sentinel_token(
+            self.session, self.device_id, flow="authorize_continue"
+        )
         if not sentinel_token:
             print("  ❌ 无法获取 authorize_continue 的 sentinel token")
             return False
@@ -764,25 +837,26 @@ class ProtocolRegistrar:
         url = f"{OPENAI_AUTH_BASE}/create-account"
         headers = dict(NAVIGATE_HEADERS)
         headers["referer"] = f"{OPENAI_AUTH_BASE}/authorize"
-        resp = self.session.get(url, headers=headers, verify=False,
-                                timeout=30, allow_redirects=True)
+        resp = self.session.get(
+            url, headers=headers, verify=False, timeout=30, allow_redirects=True
+        )
         return resp.status_code == 200
 
     def step2_register_user(self, email, password):
         """
         步骤2：注册用户（邮箱+密码一次性提交）
-        
+
         POST /api/accounts/user/register
-        
+
         基于浏览器抓包确认的真实请求格式：
         请求体：{"username": "xxx@xxx.com", "password": "xxx"}
-        
+
         注意：
         - 邮箱字段名是 'username' 而非 'email'（已通过抓包验证）
         - 此端点可能需要 sentinel token（通过请求头传递）
         """
         print(f"\n🔑 [步骤2-HTTP] 注册用户: {email}")
-        
+
         url = f"{OPENAI_AUTH_BASE}/api/accounts/user/register"
         headers = self._build_headers(
             referer=f"{OPENAI_AUTH_BASE}/create-account/password",
@@ -793,7 +867,9 @@ class ProtocolRegistrar:
             "username": email,
             "password": password,
         }
-        resp = self.session.post(url, json=payload, headers=headers, verify=False, timeout=30)
+        resp = self.session.post(
+            url, json=payload, headers=headers, verify=False, timeout=30
+        )
 
         if resp.status_code == 200:
             print("  ✅ 注册成功")
@@ -802,9 +878,9 @@ class ProtocolRegistrar:
             print(f"  ❌ 失败: {resp.text[:300]}")
             # 某些 302 重定向也算成功
             if resp.status_code in (301, 302):
-                redirect_url = resp.headers.get('Location', '')
+                redirect_url = resp.headers.get("Location", "")
                 print(f"  ℹ️ 重定向到: {redirect_url[:100]}")
-                if 'email-otp' in redirect_url or 'email-verification' in redirect_url:
+                if "email-otp" in redirect_url or "email-verification" in redirect_url:
                     return True
             return False
 
@@ -813,7 +889,7 @@ class ProtocolRegistrar:
         步骤3：触发验证码发送（HTTP GET 页面导航请求）
         GET /api/accounts/email-otp/send
         GET /email-verification
-        
+
         这两个都是 GET 请求，不需要 sentinel token。
         """
         print("\n📬 [步骤3-HTTP] 触发验证码发送")
@@ -824,8 +900,7 @@ class ProtocolRegistrar:
         headers["referer"] = f"{OPENAI_AUTH_BASE}/create-account/password"
 
         resp = self.session.get(
-            url_send, headers=headers, verify=False,
-            timeout=30, allow_redirects=True
+            url_send, headers=headers, verify=False, timeout=30, allow_redirects=True
         )
         print(f"  send 状态码: {resp.status_code}")
 
@@ -834,8 +909,7 @@ class ProtocolRegistrar:
         headers["referer"] = f"{OPENAI_AUTH_BASE}/create-account/password"
 
         resp = self.session.get(
-            url_verify, headers=headers, verify=False,
-            timeout=30, allow_redirects=True
+            url_verify, headers=headers, verify=False, timeout=30, allow_redirects=True
         )
         print(f"  email-verification 状态码: {resp.status_code}")
         print("  ✅ 验证码发送触发完成")
@@ -845,7 +919,7 @@ class ProtocolRegistrar:
         """
         步骤4：提交邮箱验证码（HTTP POST）
         POST /api/accounts/email-otp/validate
-        
+
         从 cURL 分析确认：此步骤不需要 sentinel token。
         """
         print(f"\n🔢 [步骤4-HTTP] 验证邮箱 OTP: {code}")
@@ -855,7 +929,9 @@ class ProtocolRegistrar:
         )
         payload = {"code": code}
 
-        resp = self.session.post(url, json=payload, headers=headers, verify=False, timeout=30)
+        resp = self.session.post(
+            url, json=payload, headers=headers, verify=False, timeout=30
+        )
         print(f"  状态码: {resp.status_code}")
 
         if resp.status_code == 200:
@@ -880,7 +956,9 @@ class ProtocolRegistrar:
             "birthdate": birthdate,
         }
 
-        resp = self.session.post(url, json=payload, headers=headers, verify=False, timeout=30)
+        resp = self.session.post(
+            url, json=payload, headers=headers, verify=False, timeout=30
+        )
         print(f"  状态码: {resp.status_code}")
 
         if resp.status_code == 200:
@@ -890,7 +968,9 @@ class ProtocolRegistrar:
             print("  ⚠️ 需要 sentinel token，重试...")
             # 带 sentinel 重试
             headers["openai-sentinel-token"] = self.sentinel_gen.generate_token()
-            resp = self.session.post(url, json=payload, headers=headers, verify=False, timeout=30)
+            resp = self.session.post(
+                url, json=payload, headers=headers, verify=False, timeout=30
+            )
             if resp.status_code == 200:
                 print("  ✅ 账号创建完成（带 sentinel 重试成功）！")
                 return True
@@ -954,6 +1034,7 @@ class ProtocolRegistrar:
         except Exception as e:
             print(f"\n❌ 注册异常: {e}")
             import traceback
+
             traceback.print_exc()
             return False, email, password
 
@@ -1038,23 +1119,26 @@ def build_sentinel_token(session, device_id, flow="authorize_continue"):
 
     if pow_data.get("required") and pow_data.get("seed"):
         p_value = gen.generate_token(
-            seed=pow_data["seed"],
-            difficulty=pow_data.get("difficulty", "0")
+            seed=pow_data["seed"], difficulty=pow_data.get("difficulty", "0")
         )
     else:
         p_value = gen.generate_requirements_token()
 
-    sentinel_token = json.dumps({
-        "p": p_value,
-        "t": "",
-        "c": c_value,
-        "id": device_id,
-        "flow": flow,
-    })
+    sentinel_token = json.dumps(
+        {
+            "p": p_value,
+            "t": "",
+            "c": c_value,
+            "id": device_id,
+            "flow": flow,
+        }
+    )
     return sentinel_token
 
 
-def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_token=None):
+def perform_codex_oauth_login_http(
+    email, password, registrar_session=None, cf_token=None
+):
     """
     纯 HTTP 方式执行 Codex OAuth 登录获取 Token（零浏览器）。
 
@@ -1249,7 +1333,9 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
                 resp = session.post(
                     f"{OAUTH_ISSUER}/api/accounts/email-otp/validate",
                     json={"code": try_code},
-                    headers=h_val, verify=False, timeout=30,
+                    headers=h_val,
+                    verify=False,
+                    timeout=30,
                 )
                 if resp.status_code == 200:
                     code = try_code
@@ -1283,9 +1369,14 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
             h_about["referer"] = f"{OAUTH_ISSUER}/email-verification"
             resp_about = session.get(
                 f"{OAUTH_ISSUER}/about-you",
-                headers=h_about, verify=False, timeout=30, allow_redirects=True,
+                headers=h_about,
+                verify=False,
+                timeout=30,
+                allow_redirects=True,
             )
-            print(f"  GET about-you: {resp_about.status_code}, URL: {resp_about.url[:80]}")
+            print(
+                f"  GET about-you: {resp_about.status_code}, URL: {resp_about.url[:80]}"
+            )
 
             # 检查是否已经跳转到 consent（说明账号已存在，跳过 about-you）
             if "consent" in resp_about.url or "organization" in resp_about.url:
@@ -1294,8 +1385,16 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
             else:
                 # 尝试 POST create_account
                 import random
+
                 first_names = ["James", "Mary", "John", "Linda", "Robert", "Sarah"]
-                last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Wilson"]
+                last_names = [
+                    "Smith",
+                    "Johnson",
+                    "Williams",
+                    "Brown",
+                    "Jones",
+                    "Wilson",
+                ]
                 name = f"{random.choice(first_names)} {random.choice(last_names)}"
                 year = random.randint(1995, 2002)
                 month = random.randint(1, 12)
@@ -1309,7 +1408,9 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
                 resp_create = session.post(
                     f"{OAUTH_ISSUER}/api/accounts/create_account",
                     json={"name": name, "birthdate": birthdate},
-                    headers=h_create, verify=False, timeout=30,
+                    headers=h_create,
+                    verify=False,
+                    timeout=30,
                 )
                 print(f"  create_account: {resp_create.status_code}")
 
@@ -1320,7 +1421,10 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
                         print(f"  ✅ 个人信息已提交，continue_url: {continue_url}")
                     except Exception:
                         pass
-                elif resp_create.status_code == 400 and "already_exists" in resp_create.text:
+                elif (
+                    resp_create.status_code == 400
+                    and "already_exists" in resp_create.text
+                ):
                     # 账号已存在（注册时已创建），直接跳到 consent
                     print("  ⚠️ 账号已存在，直接跳转 consent 页面...")
                     continue_url = f"{OAUTH_ISSUER}/sign-in-with-chatgpt/codex/consent"
@@ -1378,6 +1482,7 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
                     first_part += "=" * pad
                 try:
                     import base64
+
                     raw = base64.urlsafe_b64decode(first_part)
                     return json.loads(raw.decode("utf-8"))
                 except Exception:
@@ -1390,8 +1495,13 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
         if max_depth <= 0:
             return None
         try:
-            r = session_obj.get(url, headers=NAVIGATE_HEADERS, verify=False,
-                               timeout=15, allow_redirects=False)
+            r = session_obj.get(
+                url,
+                headers=NAVIGATE_HEADERS,
+                verify=False,
+                timeout=15,
+                allow_redirects=False,
+            )
             if r.status_code in (301, 302, 303, 307, 308):
                 loc = r.headers.get("Location", "")
                 code = _extract_code_from_url(loc)
@@ -1418,8 +1528,13 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
     print("  [4a] GET consent 页面...")
     consent_html = ""
     try:
-        resp = session.get(consent_url, headers=NAVIGATE_HEADERS,
-                          verify=False, timeout=30, allow_redirects=False)
+        resp = session.get(
+            consent_url,
+            headers=NAVIGATE_HEADERS,
+            verify=False,
+            timeout=30,
+            allow_redirects=False,
+        )
 
         # 如果直接 302 带 code（少数情况）
         if resp.status_code in (301, 302, 303, 307, 308):
@@ -1462,7 +1577,9 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
             else:
                 print(f"  ⚠️ session 中无 workspaces 数据")
                 # 打印 session 完整内容供调试
-                print(f"  session 完整内容: {json.dumps(session_data, indent=2)[:1500]}")
+                print(
+                    f"  session 完整内容: {json.dumps(session_data, indent=2)[:1500]}"
+                )
         else:
             print(f"  ⚠️ 无法解码 oai-client-auth-session cookie")
 
@@ -1477,14 +1594,19 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
                 resp = session.post(
                     f"{OAUTH_ISSUER}/api/accounts/workspace/select",
                     json={"workspace_id": workspace_id},
-                    headers=h_consent, verify=False, timeout=30, allow_redirects=False,
+                    headers=h_consent,
+                    verify=False,
+                    timeout=30,
+                    allow_redirects=False,
                 )
                 print(f"  状态码: {resp.status_code}")
 
                 if resp.status_code in (301, 302, 303, 307, 308):
                     auth_code = _extract_code_from_url(resp.headers.get("Location", ""))
                     if auth_code:
-                        print(f"  ✅ workspace/select 302 获取到 code（长度: {len(auth_code)}）")
+                        print(
+                            f"  ✅ workspace/select 302 获取到 code（长度: {len(auth_code)}）"
+                        )
                 elif resp.status_code == 200:
                     ws_data = resp.json()
                     ws_next = ws_data.get("continue_url", "")
@@ -1494,7 +1616,11 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
 
                     # ----- 步骤4c: organization/select -----
                     if "organization" in ws_next or "organization" in ws_page:
-                        org_url = ws_next if ws_next.startswith("http") else f"{OAUTH_ISSUER}{ws_next}"
+                        org_url = (
+                            ws_next
+                            if ws_next.startswith("http")
+                            else f"{OAUTH_ISSUER}{ws_next}"
+                        )
                         print(f"  [4c] 准备 organization/select...")
 
                         # org_id 和 project_id 在 workspace/select 响应的 data.orgs 中
@@ -1522,8 +1648,11 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
 
                             resp = session.post(
                                 f"{OAUTH_ISSUER}/api/accounts/organization/select",
-                                json=body, headers=h_org,
-                                verify=False, timeout=30, allow_redirects=False,
+                                json=body,
+                                headers=h_org,
+                                verify=False,
+                                timeout=30,
+                                allow_redirects=False,
                             )
                             print(f"  状态码: {resp.status_code}")
 
@@ -1531,44 +1660,68 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
                                 loc = resp.headers.get("Location", "")
                                 auth_code = _extract_code_from_url(loc)
                                 if auth_code:
-                                    print(f"  ✅ organization/select 获取到 code（长度: {len(auth_code)}）")
+                                    print(
+                                        f"  ✅ organization/select 获取到 code（长度: {len(auth_code)}）"
+                                    )
                                 else:
                                     # 继续跟踪重定向链
                                     auth_code = _follow_and_extract_code(session, loc)
                                     if auth_code:
-                                        print(f"  ✅ 跟踪重定向获取到 code（长度: {len(auth_code)}）")
+                                        print(
+                                            f"  ✅ 跟踪重定向获取到 code（长度: {len(auth_code)}）"
+                                        )
                             elif resp.status_code == 200:
                                 org_data = resp.json()
                                 org_next = org_data.get("continue_url", "")
                                 print(f"  org continue_url: {org_next}")
                                 if org_next:
-                                    full_next = org_next if org_next.startswith("http") else f"{OAUTH_ISSUER}{org_next}"
-                                    auth_code = _follow_and_extract_code(session, full_next)
+                                    full_next = (
+                                        org_next
+                                        if org_next.startswith("http")
+                                        else f"{OAUTH_ISSUER}{org_next}"
+                                    )
+                                    auth_code = _follow_and_extract_code(
+                                        session, full_next
+                                    )
                                     if auth_code:
-                                        print(f"  ✅ 跟踪获取到 code（长度: {len(auth_code)}）")
+                                        print(
+                                            f"  ✅ 跟踪获取到 code（长度: {len(auth_code)}）"
+                                        )
                         else:
                             print("  ⚠️ 未找到 org_id，尝试直接跟踪 consent URL...")
                             auth_code = _follow_and_extract_code(session, org_url)
                             if auth_code:
-                                print(f"  ✅ 直接跟踪获取到 code（长度: {len(auth_code)}）")
+                                print(
+                                    f"  ✅ 直接跟踪获取到 code（长度: {len(auth_code)}）"
+                                )
                     else:
                         # workspace/select 返回了非 organization 的 continue_url，直接跟踪
                         if ws_next:
-                            full_next = ws_next if ws_next.startswith("http") else f"{OAUTH_ISSUER}{ws_next}"
+                            full_next = (
+                                ws_next
+                                if ws_next.startswith("http")
+                                else f"{OAUTH_ISSUER}{ws_next}"
+                            )
                             auth_code = _follow_and_extract_code(session, full_next)
                             if auth_code:
                                 print(f"  ✅ 跟踪获取到 code（长度: {len(auth_code)}）")
             except Exception as e:
                 print(f"  ⚠️ workspace/select 异常: {e}")
                 import traceback
+
                 traceback.print_exc()
 
     # ----- 步骤4d: 备用策略 — allow_redirects=True 捕获 ConnectionError -----
     if not auth_code:
         print("  [4d] 备用策略: GET consent (allow_redirects=True)...")
         try:
-            resp = session.get(consent_url, headers=NAVIGATE_HEADERS,
-                              verify=False, timeout=30, allow_redirects=True)
+            resp = session.get(
+                consent_url,
+                headers=NAVIGATE_HEADERS,
+                verify=False,
+                timeout=30,
+                allow_redirects=True,
+            )
             print(f"  最终: {resp.status_code}, URL: {resp.url[:200]}")
             auth_code = _extract_code_from_url(resp.url)
             if auth_code:
@@ -1600,6 +1753,7 @@ def perform_codex_oauth_login_http(email, password, registrar_session=None, cf_t
 
 # =================== Codex OAuth 登录 + CPA 回调（浏览器版，作为 fallback） ===================
 
+
 def perform_codex_oauth_login(email, password, registrar_session=None):
     """
     注册成功后，通过浏览器混合模式执行 Codex OAuth 登录获取 Token。
@@ -1614,7 +1768,7 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
       client_id:    app_EMoamEEZ73f0CkXaXp7hrann（Codex CLI）
       redirect_uri: http://localhost:1455/auth/callback
       scope:        openid profile email offline_access
-    
+
     参数:
         email: 注册的邮箱
         password: 注册的密码
@@ -1651,7 +1805,9 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
     try:
         # 2. 启动浏览器（带 CDP 网络事件监听）
         mode_str = "无头模式" if HEADLESS else "有头模式"
-        print(f"  🌐 启动浏览器执行 OAuth 登录（{mode_str}，sentinel SDK 自动处理 t/c 字段）...")
+        print(
+            f"  🌐 启动浏览器执行 OAuth 登录（{mode_str}，sentinel SDK 自动处理 t/c 字段）..."
+        )
         options = uc.ChromeOptions()
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
@@ -1710,8 +1866,7 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
         """
         # 在新文档加载前注入 Hook
         driver.execute_cdp_cmd(
-            "Page.addScriptToEvaluateOnNewDocument",
-            {"source": hook_js}
+            "Page.addScriptToEvaluateOnNewDocument", {"source": hook_js}
         )
 
         # 3. 导航到 OAuth authorize URL
@@ -1725,12 +1880,12 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
                 current_url = driver.current_url
                 # 检查是否已到达回调（极快通过的情况）
                 if "localhost" in current_url and "code=" in current_url:
-                    print(f"  ✅ 快速到达回调（第 {i+1}s）")
+                    print(f"  ✅ 快速到达回调（第 {i + 1}s）")
                     break
                 # 检查是否有输入框或按钮（登录页加载完成）
                 inputs = driver.find_elements(By.CSS_SELECTOR, "input")
                 if inputs:
-                    print(f"  ✅ 登录页面加载完成（第 {i+1}s）")
+                    print(f"  ✅ 登录页面加载完成（第 {i + 1}s）")
                     break
             except Exception:
                 pass
@@ -1769,12 +1924,16 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
                 current_url = driver.current_url
 
                 # ===== 检查是否已到达回调 URL =====
-                if ("localhost" in current_url or "callback" in current_url) and "code=" in current_url:
+                if (
+                    "localhost" in current_url or "callback" in current_url
+                ) and "code=" in current_url:
                     parsed = urlparse(current_url)
                     params = parse_qs(parsed.query)
                     auth_code = params.get("code", [None])[0]
                     if auth_code:
-                        print(f"  ✅ 获取到 authorization code（URL 回调，长度: {len(auth_code)}）")
+                        print(
+                            f"  ✅ 获取到 authorization code（URL 回调，长度: {len(auth_code)}）"
+                        )
                         break
 
                 # ===== 检是否是错误页面 =====
@@ -1784,7 +1943,7 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
                 # ===== 邮箱输入页面 =====
                 email_inputs = driver.find_elements(
                     By.CSS_SELECTOR,
-                    'input[type="email"], input[name="email"], input[name="username"], input[id="email"]'
+                    'input[type="email"], input[name="email"], input[name="username"], input[id="email"]',
                 )
                 visible_email = [e for e in email_inputs if e.is_displayed()]
                 if visible_email:
@@ -1794,7 +1953,9 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
                     inp.send_keys(email)
                     time.sleep(0.5)
                     # 点击 Continue/Submit 按钮
-                    submit_btns = driver.find_elements(By.CSS_SELECTOR, 'button[type="submit"]')
+                    submit_btns = driver.find_elements(
+                        By.CSS_SELECTOR, 'button[type="submit"]'
+                    )
                     if submit_btns:
                         driver.execute_script("arguments[0].click();", submit_btns[0])
                     else:
@@ -1802,7 +1963,13 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
                         buttons = driver.find_elements(By.TAG_NAME, "button")
                         for btn in buttons:
                             text = btn.text.strip().lower()
-                            if text in ("continue", "继续", "next", "sign in", "log in"):
+                            if text in (
+                                "continue",
+                                "继续",
+                                "next",
+                                "sign in",
+                                "log in",
+                            ):
                                 driver.execute_script("arguments[0].click();", btn)
                                 break
                     print("  ✅ 邮箱已提交")
@@ -1811,8 +1978,7 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
 
                 # ===== 密码输入页面 =====
                 pwd_inputs = driver.find_elements(
-                    By.CSS_SELECTOR,
-                    'input[type="password"], input[name="password"]'
+                    By.CSS_SELECTOR, 'input[type="password"], input[name="password"]'
                 )
                 visible_pwd = [e for e in pwd_inputs if e.is_displayed()]
                 if visible_pwd:
@@ -1825,7 +1991,9 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
                         time.sleep(0.03)
                     time.sleep(0.5)
                     # 点击 Submit
-                    submit_btns = driver.find_elements(By.CSS_SELECTOR, 'button[type="submit"]')
+                    submit_btns = driver.find_elements(
+                        By.CSS_SELECTOR, 'button[type="submit"]'
+                    )
                     if submit_btns:
                         driver.execute_script("arguments[0].click();", submit_btns[0])
                     else:
@@ -1845,10 +2013,19 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
                 for btn in buttons:
                     try:
                         btn_text = btn.text.strip().lower()
-                        if btn_text in ("continue", "继续", "allow", "approve", "accept", "authorize"):
+                        if btn_text in (
+                            "continue",
+                            "继续",
+                            "allow",
+                            "approve",
+                            "accept",
+                            "authorize",
+                        ):
                             if btn.is_displayed() and btn.is_enabled():
                                 driver.execute_script("arguments[0].click();", btn)
-                                print(f"  ✅ [OAuth] 已点击确认按钮: '{btn.text.strip()}'")
+                                print(
+                                    f"  ✅ [OAuth] 已点击确认按钮: '{btn.text.strip()}'"
+                                )
                                 clicked_consent = True
                                 time.sleep(3)
                                 break
@@ -1875,17 +2052,23 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
                     try:
                         msg = json.loads(entry["message"])
                         method = msg.get("message", {}).get("method", "")
-                        if method in ("Network.requestWillBeSent", "Network.responseReceived"):
-                            url = (msg.get("message", {}).get("params", {})
-                                   .get("request", {}).get("url", "")
-                                   or msg.get("message", {}).get("params", {})
-                                   .get("response", {}).get("url", ""))
+                        if method in (
+                            "Network.requestWillBeSent",
+                            "Network.responseReceived",
+                        ):
+                            url = msg.get("message", {}).get("params", {}).get(
+                                "request", {}
+                            ).get("url", "") or msg.get("message", {}).get(
+                                "params", {}
+                            ).get("response", {}).get("url", "")
                             if "code=" in url and "localhost" in url:
                                 parsed = urlparse(url)
                                 params = parse_qs(parsed.query)
                                 auth_code = params.get("code", [None])[0]
                                 if auth_code:
-                                    print(f"  ✅ 从网络日志中获取到 code（长度: {len(auth_code)}）")
+                                    print(
+                                        f"  ✅ 从网络日志中获取到 code（长度: {len(auth_code)}）"
+                                    )
                                     break
                     except Exception:
                         continue
@@ -1914,7 +2097,9 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
                     t_val = st.get("t", "")
                     c_val = st.get("c", "")
                     flow = st.get("flow", "")
-                    print(f"    [{idx}] flow={flow}, t长度={len(t_val)}, c长度={len(c_val)}")
+                    print(
+                        f"    [{idx}] flow={flow}, t长度={len(t_val)}, c长度={len(c_val)}"
+                    )
         except Exception:
             pass
 
@@ -1932,6 +2117,7 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
     except Exception as e:
         print(f"  ❌ Codex OAuth 登录异常: {e}")
         import traceback
+
         traceback.print_exc()
         return None
     finally:
@@ -1946,7 +2132,7 @@ def perform_codex_oauth_login(email, password, registrar_session=None):
 def codex_exchange_code(code, code_verifier):
     """
     用 authorization code 换取 Codex tokens
-    
+
     POST https://auth.openai.com/oauth/token
     Content-Type: application/x-www-form-urlencoded
     """
@@ -1992,6 +2178,7 @@ def codex_exchange_code(code, code_verifier):
 
 # =================== Token JSON 保存 + CPA 上传 ===================
 
+
 def decode_jwt_payload(token):
     """解析 JWT token 的 payload 部分"""
     try:
@@ -2012,7 +2199,7 @@ def decode_jwt_payload(token):
 def save_token_json(email, access_token, refresh_token=None, id_token=None):
     """
     保存完整的 Token JSON 文件（格式兼容 Codex），并自动上传到 CPA 管理平台。
-    
+
     JSON 格式与 codex_ultimate.py 一致：
     {
         "type": "codex",
@@ -2037,7 +2224,9 @@ def save_token_json(email, access_token, refresh_token=None, id_token=None):
         # 计算过期时间
         exp_timestamp = payload.get("exp", 0)
         if exp_timestamp:
-            exp_dt = datetime.fromtimestamp(exp_timestamp, tz=timezone(timedelta(hours=8)))
+            exp_dt = datetime.fromtimestamp(
+                exp_timestamp, tz=timezone(timedelta(hours=8))
+            )
             expired_str = exp_dt.strftime("%Y-%m-%dT%H:%M:%S+08:00")
         else:
             expired_str = ""
@@ -2113,6 +2302,7 @@ def save_tokens(email, tokens):
 
 # =================== 账号持久化 ===================
 
+
 def save_account(email, password):
     """保存账号信息（线程安全）"""
     try:
@@ -2122,6 +2312,7 @@ def save_account(email, password):
             file_exists = os.path.exists(CSV_FILE)
             with open(CSV_FILE, "a", newline="", encoding="utf-8") as f:
                 import csv
+
                 w = csv.writer(f)
                 if not file_exists:
                     w.writerow(["email", "password", "timestamp"])
@@ -2132,6 +2323,7 @@ def save_account(email, password):
 
 
 # =================== 批量执行入口 ===================
+
 
 def register_one(worker_id=0, task_index=0, total=1):
     """
@@ -2165,7 +2357,8 @@ def register_one(worker_id=0, task_index=0, total=1):
     tokens = None
     try:
         tokens = perform_codex_oauth_login_http(
-            email, password,
+            email,
+            password,
             registrar_session=registrar.session,
             cf_token=cf_token,
         )
@@ -2176,7 +2369,9 @@ def register_one(worker_id=0, task_index=0, total=1):
         t_total = time.time() - t_start
         if tokens:
             save_tokens(email, tokens)
-            print(f"{tag} ✅ {email} | 注册 {t_reg:.1f}s + OAuth {t_total - t_reg:.1f}s = 总 {t_total:.1f}s")
+            print(
+                f"{tag} ✅ {email} | 注册 {t_reg:.1f}s + OAuth {t_total - t_reg:.1f}s = 总 {t_total:.1f}s"
+            )
         else:
             print(f"{tag} ⚠️ OAuth 失败（注册已成功）")
     except Exception as e:
@@ -2191,17 +2386,19 @@ def run_batch():
     workers = max(1, CONCURRENT_WORKERS)
     batch_start = time.time()
 
-    print(f"\n🚀 协议注册机 v5 — {TOTAL_ACCOUNTS} 个账号 | 并发 {workers} | 域名 {CF_EMAIL_DOMAIN}")
+    print(
+        f"\n🚀 协议注册机 v5 — {TOTAL_ACCOUNTS} 个账号 | 并发 {workers} | 域名 {CF_EMAIL_DOMAIN}"
+    )
 
     ok = 0
     fail = 0
     results_lock = threading.Lock()
-    reg_times = []    # 注册耗时列表
+    reg_times = []  # 注册耗时列表
     total_times = []  # 总耗时列表
 
     if workers == 1:
         for i in range(TOTAL_ACCOUNTS):
-            print(f"\n--- [{i+1}/{TOTAL_ACCOUNTS}] ---")
+            print(f"\n--- [{i + 1}/{TOTAL_ACCOUNTS}] ---")
 
             email, password, success, t_reg, t_total = register_one(
                 worker_id=0, task_index=i + 1, total=TOTAL_ACCOUNTS
@@ -2216,7 +2413,9 @@ def run_batch():
 
             wall = time.time() - batch_start
             throughput = wall / ok if ok > 0 else 0
-            print(f"📊 {i+1}/{TOTAL_ACCOUNTS} | ✅{ok} ❌{fail} | 吞吐 {throughput:.1f}s/个 | 已用 {wall:.0f}s")
+            print(
+                f"📊 {i + 1}/{TOTAL_ACCOUNTS} | ✅{ok} ❌{fail} | 吞吐 {throughput:.1f}s/个 | 已用 {wall:.0f}s"
+            )
 
             if i < TOTAL_ACCOUNTS - 1:
                 wait = random.randint(3, 8)
@@ -2230,9 +2429,7 @@ def run_batch():
                 time.sleep(jitter)
             try:
                 email, password, success, t_reg, t_total = register_one(
-                    worker_id=worker_id,
-                    task_index=task_index,
-                    total=TOTAL_ACCOUNTS
+                    worker_id=worker_id, task_index=task_index, total=TOTAL_ACCOUNTS
                 )
                 return task_index, email, password, success, t_reg, t_total
             except Exception as e:
@@ -2260,7 +2457,9 @@ def run_batch():
                         done = ok + fail
                         wall = time.time() - batch_start
                         throughput = wall / ok if ok > 0 else 0
-                        print(f"📊 {done}/{TOTAL_ACCOUNTS} | ✅{ok} ❌{fail} | 吞吐 {throughput:.1f}s/个 | 已用 {wall:.0f}s")
+                        print(
+                            f"📊 {done}/{TOTAL_ACCOUNTS} | ✅{ok} ❌{fail} | 吞吐 {throughput:.1f}s/个 | 已用 {wall:.0f}s"
+                        )
                 except Exception as e:
                     with results_lock:
                         fail += 1
@@ -2270,7 +2469,9 @@ def run_batch():
     throughput = elapsed / ok if ok > 0 else 0
     avg_reg = sum(reg_times) / len(reg_times) if reg_times else 0
     avg_total = sum(total_times) / len(total_times) if total_times else 0
-    print(f"\n🏁 完成: ✅{ok} ❌{fail} | 总耗时 {elapsed:.1f}s | 吞吐 {throughput:.1f}s/个 | 单号(注册 {avg_reg:.1f}s + OAuth {avg_total - avg_reg:.1f}s = {avg_total:.1f}s)")
+    print(
+        f"\n🏁 完成: ✅{ok} ❌{fail} | 总耗时 {elapsed:.1f}s | 吞吐 {throughput:.1f}s/个 | 单号(注册 {avg_reg:.1f}s + OAuth {avg_total - avg_reg:.1f}s = {avg_total:.1f}s)"
+    )
 
 
 if __name__ == "__main__":
