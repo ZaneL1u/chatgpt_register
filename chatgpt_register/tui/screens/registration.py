@@ -56,28 +56,8 @@ class RegistrationScreen(BaseWizardScreen):
 
     def validate_current_step(self) -> list[str]:
         state = self.wizard_state.registration
-        field_errors: dict[str, str] = {}
+        field_errors = validate_registration_values(state)
         summary: list[str] = []
-
-        total_accounts = _positive_int(state["total_accounts"])
-        workers = _positive_int(state["workers"])
-
-        if total_accounts is None:
-            field_errors["registration-total-accounts"] = "注册账号数量必须是大于 0 的整数。"
-        if workers is None:
-            field_errors["registration-workers"] = "并发数必须是大于 0 的整数。"
-        if total_accounts is not None and workers is not None and workers > total_accounts:
-            field_errors["registration-workers"] = "并发数不能大于注册账号数量。"
-
-        proxy = state["proxy"].strip()
-        if proxy and not _is_valid_proxy(proxy):
-            field_errors["registration-proxy"] = "代理地址必须包含协议和主机，例如 http://127.0.0.1:7890。"
-
-        for field_id, key in REGISTRATION_FIELDS.items():
-            if key in {"proxy", "total_accounts", "workers"}:
-                continue
-            if not state[key].strip():
-                field_errors[field_id] = "该字段不能为空。"
 
         for field_id in REGISTRATION_FIELDS:
             self.set_field_error(field_id, field_errors.get(field_id, ""))
@@ -105,3 +85,29 @@ def _positive_int(value: str) -> int | None:
 def _is_valid_proxy(value: str) -> bool:
     parsed = urlparse(value)
     return bool(parsed.scheme and parsed.netloc)
+
+
+def validate_registration_values(state: dict[str, str]) -> dict[str, str]:
+    field_errors: dict[str, str] = {}
+
+    total_accounts = _positive_int(state["total_accounts"])
+    workers = _positive_int(state["workers"])
+
+    if total_accounts is None:
+        field_errors["registration-total-accounts"] = "注册账号数量必须是大于 0 的整数。"
+    if workers is None:
+        field_errors["registration-workers"] = "并发数必须是大于 0 的整数。"
+    if total_accounts is not None and workers is not None and workers > total_accounts:
+        field_errors["registration-workers"] = "并发数不能大于注册账号数量。"
+
+    proxy = state["proxy"].strip()
+    if proxy and not _is_valid_proxy(proxy):
+        field_errors["registration-proxy"] = "代理地址必须包含协议和主机，例如 http://127.0.0.1:7890。"
+
+    for field_id, key in REGISTRATION_FIELDS.items():
+        if key in {"proxy", "total_accounts", "workers"}:
+            continue
+        if not state[key].strip():
+            field_errors[field_id] = "该字段不能为空。"
+
+    return field_errors

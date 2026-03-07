@@ -134,34 +134,9 @@ class EmailScreen(BaseWizardScreen):
 
     def validate_current_step(self) -> list[str]:
         provider = self.wizard_state.email_provider
-        field_errors: dict[str, str] = {}
-        summary: list[str] = []
         values = self.wizard_state.draft_email[provider]
-
-        if provider == "duckmail":
-            if not _is_valid_url(values["api_base"]):
-                field_errors["duckmail-api-base"] = "请输入有效的 DuckMail API 地址。"
-            if not values["bearer"].strip():
-                field_errors["duckmail-bearer"] = "请输入 DuckMail Bearer Token。"
-        elif provider == "mailcow":
-            if not _is_valid_url(values["api_url"]):
-                field_errors["mailcow-api-url"] = "请输入有效的 Mailcow API URL。"
-            for field_id, message in {
-                "mailcow-api-key": "请输入 Mailcow API Key。",
-                "mailcow-domain": "请输入 Mailcow 域名。",
-                "mailcow-imap-host": "请输入 Mailcow IMAP Host。",
-            }.items():
-                state_key = EMAIL_FIELDS[provider][field_id]
-                if not values[state_key].strip():
-                    field_errors[field_id] = message
-            try:
-                if int(values["imap_port"]) <= 0:
-                    raise ValueError
-            except ValueError:
-                field_errors["mailcow-imap-port"] = "IMAP Port 必须是大于 0 的整数。"
-        elif provider == "mailtm":
-            if not _is_valid_url(values["api_base"]):
-                field_errors["mailtm-api-base"] = "请输入有效的 Mail.tm API 地址。"
+        field_errors = validate_email_values(provider, values)
+        summary: list[str] = []
 
         for field_id in EMAIL_FIELDS[provider]:
             self.set_field_error(field_id, field_errors.get(field_id, ""))
@@ -187,3 +162,34 @@ class EmailScreen(BaseWizardScreen):
 def _is_valid_url(value: str) -> bool:
     parsed = urlparse(value.strip())
     return bool(parsed.scheme and parsed.netloc)
+
+
+def validate_email_values(provider: str, values: dict[str, str]) -> dict[str, str]:
+    field_errors: dict[str, str] = {}
+
+    if provider == "duckmail":
+        if not _is_valid_url(values["api_base"]):
+            field_errors["duckmail-api-base"] = "请输入有效的 DuckMail API 地址。"
+        if not values["bearer"].strip():
+            field_errors["duckmail-bearer"] = "请输入 DuckMail Bearer Token。"
+    elif provider == "mailcow":
+        if not _is_valid_url(values["api_url"]):
+            field_errors["mailcow-api-url"] = "请输入有效的 Mailcow API URL。"
+        for field_id, message in {
+            "mailcow-api-key": "请输入 Mailcow API Key。",
+            "mailcow-domain": "请输入 Mailcow 域名。",
+            "mailcow-imap-host": "请输入 Mailcow IMAP Host。",
+        }.items():
+            state_key = EMAIL_FIELDS[provider][field_id]
+            if not values[state_key].strip():
+                field_errors[field_id] = message
+        try:
+            if int(values["imap_port"]) <= 0:
+                raise ValueError
+        except ValueError:
+            field_errors["mailcow-imap-port"] = "IMAP Port 必须是大于 0 的整数。"
+    elif provider == "mailtm":
+        if not _is_valid_url(values["api_base"]):
+            field_errors["mailtm-api-base"] = "请输入有效的 Mail.tm API 地址。"
+
+    return field_errors

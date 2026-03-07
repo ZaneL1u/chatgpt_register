@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from textual.app import App, ComposeResult, ScreenStackError
+from textual.app import App, ScreenStackError
 from textual.binding import Binding
-from textual.containers import Container, Horizontal
-from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Static
+from textual.screen import Screen
 
 from chatgpt_register.config.model import RegisterConfig
-from chatgpt_register.tui.screens import EmailScreen, RegistrationScreen
+from chatgpt_register.tui.screens import ConfirmExitScreen, EmailScreen, RegistrationScreen, SummaryScreen, UploadScreen
 from chatgpt_register.tui.state import WizardState
 
 
@@ -94,9 +92,9 @@ class WizardApp(App[RegisterConfig | None]):
     def on_mount(self) -> None:
         self.install_screen(EmailScreen(), "email")
         self.install_screen(RegistrationScreen(), "registration")
-        self.install_screen(_PlaceholderScreen("步骤 3/4 · 上传目标", "上传目标页将在 Wave 2 完成；当前占位仅用于验证线性导航。"), "upload")
-        self.install_screen(_PlaceholderScreen("步骤 4/4 · 确认摘要", "确认摘要页将在 Wave 2 完成；当前占位仅用于保留 Screen 名称。"), "summary")
-        self.install_screen(_ConfirmExitScreen(), "confirm-exit")
+        self.install_screen(UploadScreen(), "upload")
+        self.install_screen(SummaryScreen(), "summary")
+        self.install_screen(ConfirmExitScreen(), "confirm-exit")
         self.current_screen_name = "email"
         self.push_screen("email")
 
@@ -120,36 +118,3 @@ class WizardApp(App[RegisterConfig | None]):
     def _handle_exit_confirmation(self, should_exit: bool | None) -> None:
         if should_exit:
             self.exit(None)
-
-
-class _PlaceholderScreen(Screen[None]):
-    def __init__(self, title: str, description: str) -> None:
-        super().__init__()
-        self.title_text = title
-        self.description_text = description
-
-    def compose(self) -> ComposeResult:
-        yield Container(
-            Static(self.title_text, classes="step-title"),
-            Static(self.description_text, classes="placeholder"),
-        )
-
-
-class _ConfirmExitScreen(ModalScreen[bool]):
-    def compose(self) -> ComposeResult:
-        yield Container(
-            Static("确认退出当前向导？", classes="step-title"),
-            Static("未保存的表单改动会丢失。"),
-            Horizontal(
-                Button("继续编辑", id="cancel-exit"),
-                Button("确认退出", id="confirm-exit", variant="error"),
-                classes="wizard-actions",
-            ),
-            id="modal-body",
-        )
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "cancel-exit":
-            self.dismiss(False)
-        elif event.button.id == "confirm-exit":
-            self.dismiss(True)
