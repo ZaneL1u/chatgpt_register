@@ -88,5 +88,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. 配置层基础 | 0/2 | Planning complete | - |
 | 2. 模块拆分 | 2/2 | Complete   | 2026-03-07 |
-| 3. TUI 配置向导 | 0/2 | Planned    |  |
+| 3. TUI 配置向导 | 1/2 | In Progress|  |
 | 4. CLI 集成与 Profile 管理 | 0/? | Not started | - |
