@@ -9,6 +9,7 @@ dependencies = [
   "pydantic>=2.12,<3",
   "questionary>=2.1.0",
   "rich>=13.7.0",
+  "textual>=7.5,<8",
   "tomli-w>=1.2",
 ]
 scripts = { chatgpt-register = "chatgpt_register.cli:main" }
@@ -22,5 +23,7 @@ include = ["chatgpt_register*"]
 
 [dependency-groups]
 dev = [
+    "pytest-asyncio>=1.2.0",
     "pytest>=9.0.2",
+    "textual-dev>=1.7.0",
 ]

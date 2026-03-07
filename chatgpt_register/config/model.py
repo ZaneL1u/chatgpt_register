@@ -141,6 +141,7 @@ class RegConfig(BaseModel):
     """注册参数"""
 
     total_accounts: int = Field(default=5, ge=1, description="注册账号数量")
+    workers: int = Field(default=3, ge=1, description="并发数")
     proxy: str = ""
     output_file: str = "registered_accounts.txt"
     ak_file: str = "ak.txt"

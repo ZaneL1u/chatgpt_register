@@ -19,6 +19,7 @@ def sample_duckmail_dict() -> dict:
         },
         "registration": {
             "total_accounts": 5,
+            "workers": 3,
             "proxy": "socks5://127.0.0.1:1080",
             "output_file": "registered_accounts.txt",
             "ak_file": "ak.txt",
@@ -58,6 +59,7 @@ def sample_mailcow_dict() -> dict:
         },
         "registration": {
             "total_accounts": 10,
+            "workers": 4,
             "proxy": "",
             "output_file": "registered_accounts.txt",
             "ak_file": "ak.txt",
@@ -89,6 +91,7 @@ def sample_mailtm_dict() -> dict:
         },
         "registration": {
             "total_accounts": 3,
+            "workers": 2,
             "proxy": "http://proxy.example.com:8080",
             "output_file": "output.txt",
             "ak_file": "ak.txt",

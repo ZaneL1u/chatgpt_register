@@ -63,6 +63,7 @@ def _parse_upload_targets(value):
 def _load_legacy_config() -> dict:
     config = {
         "total_accounts": 3,
+        "workers": 3,
         "email_provider": "mailtm",
         "duckmail_api_base": "https://api.duckmail.sbs",
         "duckmail_bearer": "",
@@ -112,6 +113,7 @@ def _load_legacy_config() -> dict:
     config["mailtm_api_base"] = os.environ.get("MAILTM_API_BASE", config["mailtm_api_base"])
     config["proxy"] = os.environ.get("PROXY", config["proxy"])
     config["total_accounts"] = int(os.environ.get("TOTAL_ACCOUNTS", config["total_accounts"]))
+    config["workers"] = int(os.environ.get("WORKERS", config["workers"]))
     config["enable_oauth"] = as_bool(os.environ.get("ENABLE_OAUTH", config["enable_oauth"]))
     config["oauth_required"] = as_bool(os.environ.get("OAUTH_REQUIRED", config["oauth_required"]))
     config["oauth_issuer"] = os.environ.get("OAUTH_ISSUER", config["oauth_issuer"])
@@ -143,6 +145,7 @@ def _legacy_to_register_config_dict(raw: dict) -> dict:
         },
         "registration": {
             "total_accounts": int(raw.get("total_accounts", 3)),
+            "workers": int(raw.get("workers", 3)),
             "proxy": raw.get("proxy", "") or "",
             "output_file": raw.get("output_file", "registered_accounts.txt"),
             "ak_file": raw.get("ak_file", "ak.txt"),
@@ -242,6 +245,15 @@ def _resolve_count_and_workers(config_dict: dict, non_interactive, total_account
 
     if workers_arg is not None and workers_arg <= 0:
         raise ValueError("--workers 必须大于 0")
+    if workers_arg is not None:
+        config_dict.setdefault("registration", {})["workers"] = workers_arg
+    elif not non_interactive:
+        default_workers = config_dict.get("registration", {}).get("workers", 3)
+        workers_input = input(f"并发数 (默认 {default_workers}): ").strip()
+        if workers_input.isdigit() and int(workers_input) > 0:
+            config_dict["registration"]["workers"] = int(workers_input)
+        else:
+            config_dict.setdefault("registration", {})["workers"] = default_workers
     return config_dict
 
 

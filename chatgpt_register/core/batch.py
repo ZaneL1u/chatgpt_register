@@ -132,7 +132,7 @@ def run_batch(config: RegisterConfig):
     """并发批量注册，接收 RegisterConfig 实例作为唯一配置入口。"""
     total_accounts = config.registration.total_accounts
     output_file = config.registration.output_file
-    max_workers = 3
+    max_workers = config.registration.workers
     actual_workers = min(max_workers, total_accounts)
     provider_name = _provider_label(config.email.provider)
 

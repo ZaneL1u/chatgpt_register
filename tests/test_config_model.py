@@ -148,6 +148,7 @@ class TestDefaults:
         config = RegisterConfig.model_validate(data)
         # registration defaults
         assert config.registration.total_accounts == 5
+        assert config.registration.workers == 3
         assert config.registration.proxy == ""
         assert config.registration.output_file == "registered_accounts.txt"
         assert config.registration.ak_file == "ak.txt"
@@ -187,6 +188,7 @@ class TestFieldCoverage:
             },
             "registration": {
                 "total_accounts": 5,
+                "workers": 3,
                 "proxy": "socks5://127.0.0.1:1080",
                 "output_file": "registered_accounts.txt",
                 "ak_file": "ak.txt",
@@ -217,6 +219,7 @@ class TestFieldCoverage:
             },
         }
         config = RegisterConfig.model_validate(full_dict)
+        assert config.registration.workers == 3
 
         # 逐一验证 chatgpt_register.py:414-443 的全局变量对应字段
         # EMAIL_PROVIDER -> email.provider
@@ -277,6 +280,14 @@ class TestFieldCoverage:
         assert config.upload.sub2api.account_concurrency == 2
         # SUB2API_ACCOUNT_PRIORITY -> upload.sub2api.account_priority
         assert config.upload.sub2api.account_priority == 3
+
+    def test_workers_must_be_positive(self, sample_mailtm_dict: dict) -> None:
+        sample_mailtm_dict["registration"]["workers"] = 0
+
+        with pytest.raises(ValidationError) as exc_info:
+            RegisterConfig.model_validate(sample_mailtm_dict)
+
+        assert "workers" in str(exc_info.value)
 
 
 class TestFormatting:
