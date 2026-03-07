@@ -1,119 +1,126 @@
-# Testing Patterns
+# 测试模式
 
-**Analysis Date:** 2026-03-07
+**分析日期：** 2026-03-07
 
-## Test Framework
+## 测试框架
 
-**Runner:**
-- None configured
-- No `pytest`, `unittest` test suite, or CI workflow was found
+**Runner：**
+- 当前未配置测试框架
+- 未发现 `pytest`、`unittest` 测试套件或 CI 测试流程
 
-**Assertion Library:**
-- None in repository state
+**断言库：**
+- 当前仓库状态下没有专门的断言库配置
 
-**Run Commands:**
+**可执行命令：**
 ```bash
-# No committed automated test command exists today
-uv run chatgpt-register --help      # Basic CLI smoke check
-python codex/protocol_keygen.py     # Manual script execution only, requires local config and dependencies
+# 当前没有已提交的自动化测试命令
+uv run chatgpt-register --help   # 基本 CLI 烟雾检查
+python codex/protocol_keygen.py  # 手动脚本执行，依赖本地配置与额外依赖
 ```
 
-## Test File Organization
+## 测试文件组织
 
-**Location:**
-- No committed test files or `tests/` directory exist
+**位置：**
+- 仓库内没有 `tests/` 目录，也没有已提交测试文件
 
-**Naming:**
-- No test naming convention is established yet
+**命名：**
+- 还没有测试文件命名约定
 
-**Structure:**
+**当前结构：**
 ```text
-Current repository state:
+当前仓库中与功能直接相关的核心文件：
 chatgpt_register.py
 codex/protocol_keygen.py
-README.md
 config.example.json
+README.md
+AGENTS.md
+CLAUDE.md
 ```
 
-## Test Structure
+## 测试组织方式
 
-**Suite Organization:**
-- No established `describe` / class / function test layout exists
+**套件结构：**
+- 当前没有既定的 `describe`、测试类或测试函数组织模式
 
-**Patterns:**
-- Verification is currently manual and operator-driven
-- README examples and live execution act as de facto smoke testing
-- Interactive and network-coupled behavior make the current code harder to test in isolation
+**现状特征：**
+- 验证主要依赖人工执行
+- README 中的命令示例和真实运行充当事实上的 smoke test
+- 交互流程、多线程、真实网络调用让当前实现不易直接做隔离测试
 
-## Mocking
+## Mock 策略
 
-**Framework:**
-- None configured
+**框架：**
+- 未配置 mocking 框架
 
-**Patterns:**
-- No mock fixtures, fake providers, or HTTP stubs are present
-- External services are called directly from production code
+**当前状态：**
+- 没有 HTTP stub、provider fake、IMAP fake、fixture 工厂
+- 生产代码默认直接调用真实外部服务
 
-**What to Mock:**
-- OpenAI auth endpoints and OAuth token exchange
-- DuckMail / Mail.tm / Mailcow API and IMAP interactions
-- CPA and Sub2API upload endpoints
-- Time, random values, and filesystem writes for deterministic tests
+**建议优先 mock：**
+- OpenAI 注册 / OAuth 端点
+- DuckMail / Mail.tm / Mailcow API 与 IMAP 行为
+- CPA 与 Sub2API 上传接口
+- 时间、随机值、文件写入，以便获得确定性测试
 
-**What NOT to Mock:**
-- Pure parsing helpers such as upload-target parsing and OTP extraction can be tested directly
-- Config merge behavior can be tested with temporary files and environment variables
+**不建议 mock：**
+- 纯解析函数，如上传目标解析、OTP 提取、JWT payload 解码
+- 配置合并逻辑，可通过临时文件和环境变量直接测试
 
-## Fixtures and Factories
+## Fixtures 与工厂
 
-**Test Data:**
-- None committed
-- The codebase would benefit from fixture payloads for provider responses and OAuth redirects
+**测试数据：**
+- 当前无已提交 fixture
+- 非常适合补充 provider 响应样本、OAuth redirect URL、token payload 样本
 
-**Location:**
-- Recommended future locations: `tests/fixtures/` for API payloads and `tests/factories/` for config / token builders
+**建议位置：**
+- `tests/fixtures/`：放接口响应与邮件内容样本
+- `tests/factories/`：放配置对象、token 数据、provider 输入工厂
 
-## Coverage
+## 覆盖率
 
-**Requirements:**
-- No target or enforcement exists
+**要求：**
+- 当前没有覆盖率目标，也没有门禁
 
-**Configuration:**
-- No coverage tool configuration found
+**配置：**
+- 没有覆盖率工具配置
 
-**View Coverage:**
+**查看方式：**
 ```bash
-# Not available until a test runner is added
+# 需要先引入测试框架后才会有覆盖率命令
 ```
 
-## Test Types
+## 测试类型
 
-**Unit Tests:**
-- Missing for config parsing, provider selection, OTP extraction, and JWT decode helpers
-- These are the lowest-cost starting points
+**单元测试：**
+- 当前缺失
+- 第一优先级应覆盖 `_parse_upload_targets`、`_parse_int_list`、`_extract_verification_code`、`_decode_jwt_payload`、provider 配置校验函数
 
-**Integration Tests:**
-- Missing for email provider adapters, upload integrations, and batch worker orchestration
-- Would require HTTP mocking and IMAP fakes to be reliable
+**集成测试：**
+- 当前缺失
+- 适合覆盖邮箱适配器、上传集成、批处理协调逻辑
+- 需要 HTTP / IMAP mock，否则会非常脆弱
 
-**E2E Tests:**
-- None
-- Full live registration flows are risky and environment-dependent, so they should stay manual or run in tightly controlled sandboxes
+**端到端测试：**
+- 当前没有
+- 全真实注册流强依赖外部环境与目标站点策略，只适合受控环境下的人工或专用沙箱验证
 
-## Common Patterns
+## 常见测试关注点
 
-**Async / Concurrency Testing:**
-- No established pattern exists
-- Threaded code in `run_batch()` and shared file writes need dedicated race-safety tests if modified
+**并发测试：**
+- 当前没有既定模式
+- `run_batch()`、共享文件写入锁、token 落盘路径都需要专门的并发安全验证
 
-**Error Testing:**
-- No established pattern exists
-- High-value future tests should cover missing provider config, failed remote responses, and partial OAuth failure behavior
+**错误路径测试：**
+- 当前没有既定模式
+- 高价值场景包括 provider 配置缺失、远程接口失败、OAuth 半成功半失败、上传目标未配置
 
-**Snapshot Testing:**
-- Not used
+**快照测试：**
+- 当前不使用
+
+**规划文档约束：**
+- 由于仓库已要求 `.planning/` 默认输出中文，后续若补测试，也应覆盖语言配置读取与约束传播是否符合预期
 
 ---
 
-*Testing analysis: 2026-03-07*
-*Update when test patterns change*
+*测试分析：2026-03-07*
+*测试策略变化后更新*

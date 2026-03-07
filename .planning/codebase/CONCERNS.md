@@ -1,126 +1,130 @@
-# Codebase Concerns
+# 代码库关注点
 
-**Analysis Date:** 2026-03-07
+**分析日期：** 2026-03-07
 
-## Tech Debt
+## 技术债
 
-**Single-file main implementation:**
-- Issue: `chatgpt_register.py` concentrates CLI parsing, config loading, provider adapters, registration flow, OAuth flow, uploads, and UI in one very large module
-- Why: The project evolved as a script-first automation tool
-- Impact: Changes are harder to reason about, unit-test, and review; unrelated edits can introduce regressions
-- Fix approach: Extract config, adapters, OpenAI flow, upload integrations, and CLI UI into separate modules under a proper package
+**主实现单文件过大：**
+- 问题：`chatgpt_register.py` 同时承载 CLI、配置、邮箱适配器、注册流程、OAuth、上传、UI
+- 原因：项目以脚本优先方式逐步演化
+- 影响：改动难以局部推理，不利于测试、评审和后续重构
+- 修复方向：拆分为配置层、provider 层、OpenAI 流程层、上传层、CLI 层等模块
 
-**Duplicate registration stacks:**
-- Issue: `chatgpt_register.py` and `codex/protocol_keygen.py` implement overlapping registration / OAuth logic with different clients and config handling
-- Why: The protocol key generator appears to have been developed as a separate tool rather than a shared library consumer
-- Impact: Bug fixes and protocol updates must be applied twice, and behavior can drift silently
-- Fix approach: Decide which flow is canonical, then factor shared protocol and token utilities into reusable modules
+**双实现并存：**
+- 问题：`chatgpt_register.py` 与 `codex/protocol_keygen.py` 存在重叠的注册 / OAuth / token 能力，但技术选型和配置方式不一致
+- 原因：协议工具像是独立演化出来的旁路实现
+- 影响：协议变更或 bug 修复需要双处同步，容易漂移
+- 修复方向：明确 canonical flow，并把共享协议逻辑抽到复用模块
 
-## Known Bugs
+## 已知问题
 
-**Undeclared protocol utility dependencies:**
-- Symptoms: `codex/protocol_keygen.py` imports `requests` and `urllib3`, but they are not declared in `pyproject.toml` and do not appear in `uv.lock`
-- Trigger: Running the protocol utility in a clean environment created from the current project metadata
-- Workaround: Install missing packages manually outside the declared project dependencies
-- Root cause: Packaging metadata only covers the main CLI dependency set
-- Fix: Add missing direct dependencies or move the utility behind an optional extra with explicit install instructions
+**协议工具依赖未声明：**
+- 现象：`codex/protocol_keygen.py` 使用 `requests` 与 `urllib3`
+- 触发条件：在只按当前 `pyproject.toml` / `uv.lock` 安装依赖的干净环境运行该脚本
+- 临时规避：手动额外安装缺失依赖
+- 根因：打包元数据只覆盖了主 CLI 依赖，没有覆盖协议工具
+- 修复：把缺失依赖加入项目依赖，或把协议工具移动到可选 extra 并显式声明安装方式
 
-**Config mutation through globals:**
-- Symptoms: CLI flags mutate module-level globals such as `SUB2API_API_BASE` and `SUB2API_GROUP_IDS`
-- Trigger: Reusing functions in-process or extending the CLI to support multiple runs in one Python interpreter
-- Workaround: Run the tool as a fresh process each time
-- Root cause: Script architecture relies on import-time config hydration and mutable global state
-- Fix: Replace globals with an explicit runtime config object passed through the call graph
+**全局可变配置污染：**
+- 现象：CLI 参数会直接修改模块级全局变量，例如 `SUB2API_API_BASE`、`SUB2API_GROUP_IDS`
+- 触发条件：同一 Python 进程内多次复用逻辑，或后续想把脚本封装成可复用库
+- 临时规避：每次都用新进程运行
+- 根因：当前架构依赖 import 时加载配置和全局状态共享
+- 修复：引入显式 runtime config 对象，自顶向下传递
 
-## Security Considerations
+## 安全注意事项
 
-**Local token persistence:**
-- Risk: Access tokens, refresh tokens, and account metadata are written to plaintext files like `ak.txt`, `rk.txt`, and `codex_tokens/*.json`
-- Current mitigation: `.gitignore` excludes the default output paths and local config files
-- Recommendations: Add optional encryption-at-rest, configurable output directories outside the repo, and redaction in logs and docs
+**本地明文持久化 token：**
+- 风险：`ak.txt`、`rk.txt`、`codex_tokens/*.json` 会保存 access token、refresh token 和账号元数据
+- 当前缓解：`.gitignore` 已忽略默认输出路径与本地配置文件
+- 建议：增加可选加密存储、支持仓库外输出目录、在日志与文档中做更严格脱敏
 
-**Unverified TLS on upload paths:**
-- Risk: CPA and Sub2API upload helpers in `chatgpt_register.py` use `verify=False`, which weakens TLS trust validation
-- Current mitigation: None visible beyond operator-controlled endpoints
-- Recommendations: Default to certificate verification and make bypass opt-in only for known local lab environments
+**上传路径关闭 TLS 校验：**
+- 风险：`chatgpt_register.py` 中 CPA / Sub2API 上传使用 `verify=False`
+- 当前缓解：无明确技术缓解，只能依赖操作者控制目标地址
+- 建议：改为默认校验证书，仅在本地实验环境下显式允许关闭
 
-## Performance Bottlenecks
+**约束文件存在双份入口：**
+- 风险：`AGENTS.md`、`CLAUDE.md`、`.planning/config.json`、`.codex/config.toml` 同时表达语言策略，后续可能出现内容漂移
+- 当前缓解：目前四处内容一致
+- 建议：将语言策略的“事实源”固定为 `CLAUDE.md` 或 `.planning/config.json`，其他文件只做引用性说明
 
-**Thread-per-account external workflow:**
-- Problem: Each account registration spins up a full remote workflow with repeated polling and network waits
-- Measurement: No instrumentation beyond coarse elapsed-time prints
-- Cause: The workload is dominated by remote latency, OTP polling, and anti-abuse checks
-- Improvement path: Add metrics per stage, tune polling / backoff centrally, and consider bounded retries with provider-specific pacing
+## 性能瓶颈
 
-**Repeated provider session setup:**
-- Problem: Many provider operations create fresh sessions repeatedly instead of reusing a provider-scoped client
-- Measurement: Not quantified in code
-- Cause: Helper functions prioritize simplicity over connection reuse
-- Improvement path: Consolidate provider clients around a reusable session abstraction per worker
+**每账号一整套外部流程：**
+- 问题：每个账号都会走完整 HTTP 注册、OTP 轮询、可选 OAuth、可选上传流程
+- 量化：当前只有粗粒度耗时打印，没有分阶段指标
+- 原因：系统瓶颈主要是远程调用和等待，而不是本地 CPU
+- 优化方向：为各阶段增加指标、抽统一重试 / 退避、按 provider 做节流
 
-## Fragile Areas
+**会话重复创建：**
+- 问题：许多 provider 操作频繁新建 session，而不是按 worker 复用客户端
+- 量化：代码中没有实际测量
+- 原因：当前实现优先追求直接可用而非连接复用
+- 优化方向：抽象 provider client，按 worker 生命周期重用 session
 
-**Reverse-engineered auth and sentinel flow:**
-- Why fragile: The OpenAI auth flow depends on specific cookies, headers, redirect handling, and sentinel challenge generation
-- Common failures: Remote API changes, altered challenge formats, or anti-bot behavior can break registration without local code changes
-- Safe modification: Isolate changes, preserve request traces during debugging, and validate with a single-account smoke test first
-- Test coverage: No automated regression tests for this flow
+## 脆弱区域
 
-**Mail provider integrations:**
-- Why fragile: DuckMail, Mail.tm, and Mailcow all return different payload shapes and failure modes
-- Common failures: Domain exhaustion, rate limits, IMAP readiness lag, and response format drift
-- Safe modification: Keep adapter boundaries intact and add fixture-based tests before normalizing response parsing
-- Test coverage: No provider tests exist
+**逆向还原的认证流：**
+- 脆弱原因：流程高度依赖 Cookie、Header、redirect 链、sentinel challenge 与外部站点行为
+- 常见失败：远程页面结构变化、反滥用策略变更、challenge 格式变化
+- 安全修改方式：小步修改，保留请求轨迹，先做单账号 smoke test
+- 测试覆盖：当前没有自动化回归测试
 
-## Scaling Limits
+**邮箱提供者适配层：**
+- 脆弱原因：DuckMail、Mail.tm、Mailcow 的响应结构和失败模式差异很大
+- 常见失败：域名不可用、限速、IMAP 延迟、响应格式漂移
+- 安全修改方式：维持 adapter 边界，先补 fixture，再做统一解析调整
+- 测试覆盖：当前没有 provider 测试
 
-**Local operator throughput:**
-- Current capacity: Bounded by network quality, proxy quality, email provider rate limits, and target-site behavior rather than CPU
-- Limit: Higher worker counts will likely hit external throttling or mailbox instability before local compute saturation
-- Symptoms at limit: More failed registrations, missing OTPs, and inconsistent OAuth completion
-- Scaling path: Add provider-aware rate limiting, retry budgets, and better observability per external system
+## 扩展极限
 
-## Dependencies at Risk
+**本地吞吐上限：**
+- 当前能力：主要受代理质量、邮箱服务稳定性和目标站点风控影响，而非本地算力
+- 触顶表现：更高并发通常先带来 OTP 丢失、注册失败、OAuth 不稳定，而不是 CPU 打满
+- 扩展方向：加入 provider 级限流、失败预算、按阶段观测与熔断
 
-**`curl-cffi` browser impersonation dependency:**
-- Risk: The main flow relies heavily on impersonation behavior and request compatibility from `curl-cffi`
-- Impact: Library regressions or upstream protocol changes can block registration entirely
-- Migration plan: Abstract the HTTP client behind a thin interface so alternate clients can be tested if needed
+## 有风险的依赖
 
-**Temporary mail providers:**
-- Risk: Third-party mailbox APIs and domains can change or degrade without notice
-- Impact: Registration can fail even when core OpenAI flow logic remains correct
-- Migration plan: Keep adapter architecture, add new providers behind the same interface, and externalize provider-specific tests
+**`curl-cffi` 指纹伪装能力：**
+- 风险：主流程强依赖其 impersonation 能力与请求兼容性
+- 影响：一旦库行为变化或目标站点策略变化，主流程可能整体失效
+- 迁移方向：为 HTTP 客户端建立薄抽象，便于替换实现
 
-## Missing Critical Features
+**临时邮箱服务：**
+- 风险：第三方邮箱 API、域名信誉、接口可用性都不受本仓库控制
+- 影响：核心注册逻辑没变，成功率也可能显著波动
+- 迁移方向：继续保持 adapter 结构，新增 provider 时同时补对应用例
 
-**Automated regression test harness:**
-- Problem: There is no safe, repeatable way to validate config, parsing, adapter behavior, or upload logic before merging changes
-- Current workaround: Manual runs against live services
-- Blocks: Confident refactoring of the large scripts and protocol flow
-- Implementation complexity: Medium; unit tests are straightforward, full integration tests are harder
+## 缺失的关键能力
 
-**Structured configuration model:**
-- Problem: Config is assembled through loose dicts and globals without schema validation
-- Current workaround: Runtime checks and operator troubleshooting
-- Blocks: Clean reuse of logic and safer extension of CLI options
-- Implementation complexity: Medium
+**自动化回归测试体系：**
+- 问题：当前没有可重复、低风险的方式验证配置、解析、适配器与上传逻辑
+- 当前替代：人工跑真实环境
+- 阻碍：大规模重构和协议更新难以放心推进
+- 实施复杂度：中等，单元测试容易，集成测试较难
 
-## Test Coverage Gaps
+**结构化配置模型：**
+- 问题：配置由字典和全局变量拼装，没有 schema 约束
+- 当前替代：运行时做零散校验
+- 阻碍：CLI 扩展、逻辑复用、错误提示一致性
+- 实施复杂度：中等
 
-**Critical network-independent helpers:**
-- What's not tested: `_parse_upload_targets`, `_parse_int_list`, `_extract_verification_code`, `_decode_jwt_payload`, provider config validation helpers
-- Risk: Simple parsing regressions can slip into production unnoticed
-- Priority: High
-- Difficulty to test: Low
+## 测试覆盖缺口
 
-**Concurrent file-writing and batch coordination:**
-- What's not tested: `_save_codex_tokens`, `_upload_token_data`, and threaded `run_batch()` behavior under multiple workers
-- Risk: Race conditions or partial writes may only appear under load
-- Priority: Medium
-- Difficulty to test: Medium
+**纯函数与解析帮助函数：**
+- 未覆盖内容：`_parse_upload_targets`、`_parse_int_list`、`_extract_verification_code`、`_decode_jwt_payload`、provider 配置校验函数
+- 风险：简单解析回归也可能直接影响 CLI 行为
+- 优先级：高
+- 难度：低
+
+**并发写文件与批处理协调：**
+- 未覆盖内容：`_save_codex_tokens`、`_upload_token_data`、多 worker 下的 `run_batch()`
+- 风险：竞争条件和部分写入只会在并发下暴露
+- 优先级：中
+- 难度：中
 
 ---
 
-*Concerns audit: 2026-03-07*
-*Update as issues are fixed or new ones discovered*
+*关注点审计：2026-03-07*
+*问题修复或新增后更新*

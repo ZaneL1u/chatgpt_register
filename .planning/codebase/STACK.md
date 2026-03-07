@@ -1,79 +1,80 @@
-# Technology Stack
+# 技术栈
 
-**Analysis Date:** 2026-03-07
+**分析日期：** 2026-03-07
 
-## Languages
+## 语言
 
-**Primary:**
-- Python 3.10+ - All executable application code in `chatgpt_register.py` and `codex/protocol_keygen.py`
+**主要语言：**
+- Python 3.10+：所有可执行应用代码，集中在 `chatgpt_register.py` 与 `codex/protocol_keygen.py`
 
-**Secondary:**
-- TOML - Project metadata and packaging in `pyproject.toml`
-- JSON - Runtime configuration shape in `config.example.json`
-- Markdown - User and workflow documentation in `README.md`, `codex/README.md`, and `.codex/`
+**次要语言：**
+- TOML：项目元数据与打包配置，位于 `pyproject.toml` 与 `.codex/config.toml`
+- JSON：运行时配置与规划配置，位于 `config.example.json`、`.planning/config.json`
+- Markdown：使用文档、GSD 工作流说明与仓库约束，位于 `README.md`、`codex/README.md`、`AGENTS.md`、`CLAUDE.md`、`.codex/`
 
-## Runtime
+## 运行环境
 
-**Environment:**
-- CPython 3.10 or newer - Required by `pyproject.toml`
-- Terminal / CLI runtime - Main workflow is a command-line batch tool, not a web app or daemon
-- Network access - Required for OpenAI auth endpoints, temporary mail providers, CPA upload, and Sub2API upload
+**环境要求：**
+- CPython 3.10 或更高版本：由 `pyproject.toml` 明确要求
+- 终端 / CLI 环境：主流程是命令行批处理脚本，不是 Web 服务
+- 可用网络：依赖 OpenAI 认证接口、临时邮箱服务、CPA、Sub2API
 
-**Package Manager:**
-- `uv` - Recommended dependency and command runner in `README.md`
-- setuptools - Build backend via `setuptools.build_meta`
-- Lockfile: `uv.lock` present
+**包管理：**
+- `uv`：README 中推荐的依赖安装与运行方式
+- setuptools：构建后端，配置为 `setuptools.build_meta`
+- 锁文件：仓库包含 `uv.lock`
 
-## Frameworks
+## 框架与工具
 
-**Core:**
-- None - The main tool is a script-style Python CLI centered on `chatgpt_register.py`
+**核心：**
+- 无框架：主程序是脚本式 Python CLI，核心入口为 `chatgpt_register.py`
 
-**Testing:**
-- None configured in `pyproject.toml`
-- No `tests/` directory or test runner config found in the repository
+**测试：**
+- 未配置测试框架
+- 仓库内未发现 `tests/` 目录、`pytest` 配置或 CI 测试流水线
 
-**Build/Dev:**
-- setuptools 68+ / wheel - Packaging and console script generation
-- `argparse` - CLI argument parsing in `chatgpt_register.py`
-- `ThreadPoolExecutor` - Concurrency model for batch registration and protocol key generation
+**构建 / 开发：**
+- setuptools 68+ / wheel：用于打包与 console script 生成
+- `argparse`：CLI 参数解析，位于 `chatgpt_register.py`
+- `ThreadPoolExecutor`：并发批量注册与协议工具的核心并发模型
 
-## Key Dependencies
+## 关键依赖
 
-**Critical:**
-- `curl-cffi` 0.14.0 - Primary HTTP client with browser impersonation for the main registration flow in `chatgpt_register.py`
-- `questionary` 2.1.1 - Interactive terminal menus for upload-target and group selection
-- `rich` 14.3.3 - Optional live dashboard for concurrent task progress
+**关键依赖：**
+- `curl-cffi` 0.14.0：主注册流程的核心 HTTP 客户端，支持浏览器指纹伪装
+- `questionary` 2.1.1：交互式 TUI 选择器，用于上传目标和分组选择
+- `rich` 14.3.3：可选的运行时实时面板
 
-**Infrastructure:**
-- Python stdlib `imaplib` / `email` - Mailcow IMAP polling and message parsing in `chatgpt_register.py`
-- Python stdlib `threading` / `concurrent.futures` - Shared locks and worker pools across both scripts
-- Unpackaged imports `requests` and `urllib3` - Used by `codex/protocol_keygen.py` but not declared in `pyproject.toml`
+**基础设施依赖：**
+- Python 标准库 `imaplib` / `email`：Mailcow IMAP 轮询与邮件解析
+- Python 标准库 `threading` / `concurrent.futures`：线程池、锁、并发文件写入保护
+- `requests` 与 `urllib3`：被 `codex/protocol_keygen.py` 直接使用，但未在 `pyproject.toml` 中声明
 
-## Configuration
+## 配置方式
 
-**Environment:**
-- Main configuration source is `config.json` beside `chatgpt_register.py`, with environment variables overriding file values
-- Key runtime settings include `EMAIL_PROVIDER`, provider credentials, OAuth values, proxy settings, and upload credentials
-- Runtime outputs default to `registered_accounts.txt`, `ak.txt`, `rk.txt`, and `codex_tokens/`
+**运行时配置：**
+- 主配置来源是与脚本同目录的 `config.json`
+- 优先级为 `CLI 参数 > 环境变量 > config.json`
+- 关键项包括邮箱提供者、OAuth 配置、代理、上传目标和上传凭证
 
-**Build:**
-- `pyproject.toml` - Packaging metadata, dependency list, console script
-- `uv.lock` - Locked dependency graph for reproducible installs
-- No linter, formatter, type checker, or test config files found
+**项目级配置：**
+- `pyproject.toml`：包元数据、依赖、入口命令
+- `.planning/config.json`：GSD 工作流配置，现已加入 `language.default = zh-CN` 与 `strict = true` 的语言约束语义
+- `.codex/config.toml`：GSD Agent 配置，现已加入中文输出偏好声明
+- `AGENTS.md` 与 `CLAUDE.md`：仓库级语言与行为约束文件
 
-## Platform Requirements
+## 平台要求
 
-**Development:**
-- macOS / Linux / Windows should work if Python 3.10+ and network access are available
-- IMAP reachability is required for Mailcow mode
-- Interactive TUI paths require a real TTY and installed optional dependencies
+**开发环境：**
+- macOS / Linux / Windows 理论上都可运行，只要满足 Python 与网络条件
+- Mailcow 模式要求 IMAP 可达
+- 交互式路径要求真实 TTY 且已安装可选依赖
 
-**Production:**
-- No deployment target is defined; this is a locally run automation CLI
-- Success depends on external service stability and anti-abuse behavior rather than an internal hosting stack
+**生产 / 实际运行：**
+- 没有部署到服务器的目标定义，这是一套本地执行的自动化 CLI
+- 运行成功率主要受目标站点策略、代理质量、邮箱域信誉和外部接口稳定性影响
 
 ---
 
-*Stack analysis: 2026-03-07*
-*Update after major dependency changes*
+*技术栈分析：2026-03-07*
+*在主要依赖或配置机制变化后更新*

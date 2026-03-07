@@ -1,114 +1,116 @@
-# Architecture
+# 架构
 
-**Analysis Date:** 2026-03-07
+**分析日期：** 2026-03-07
 
-## Pattern Overview
+## 模式概览
 
-**Overall:** Monolithic Python CLI automation tool with provider adapters and worker-pool concurrency
+**整体模式：** 单体 Python CLI 自动化工具，采用邮箱提供者适配器 + 线程池并发模型
 
-**Key Characteristics:**
-- Single primary executable module `chatgpt_register.py`
-- Network-heavy workflow built around direct HTTP session orchestration
-- Provider strategy pattern for temporary email backends
-- File-based outputs instead of a database or service backend
-- Secondary standalone utility `codex/protocol_keygen.py` that overlaps conceptually with the main tool
+**关键特征：**
+- 主入口集中在单文件 `chatgpt_register.py`
+- 核心流程是高网络耦合的直接 HTTP 编排
+- 临时邮箱后端通过适配器模式接入
+- 没有数据库，输出完全基于文件
+- 存在一个与主流程概念重叠的独立工具 `codex/protocol_keygen.py`
+- GSD / Codex 工作流约束通过 `AGENTS.md`、`CLAUDE.md`、`.planning/config.json`、`.codex/config.toml` 叠加生效
 
-## Layers
+## 分层
 
-**CLI / Interaction Layer:**
-- Purpose: Parse arguments, prompt for optional interactive choices, and print progress
-- Contains: `main()`, `_build_cli_parser()`, `_resolve_proxy_from_inputs()`, `_prompt_upload_targets()`, `RuntimeDashboard`
-- Depends on: Config globals and batch execution layer
-- Used by: User terminal invocation through `chatgpt-register`
+**CLI / 交互层：**
+- 目的：解析参数、执行交互选择、展示进度与结果
+- 包含：`main()`、`_build_cli_parser()`、`_resolve_proxy_from_inputs()`、`_prompt_upload_targets()`、`RuntimeDashboard`
+- 依赖：全局配置与批处理执行层
+- 被谁使用：终端用户通过 `chatgpt-register` 调用
 
-**Configuration Layer:**
-- Purpose: Merge `config.json`, environment variables, and CLI overrides into runtime globals
-- Contains: `_load_config()`, `_apply_cli_overrides()`, provider validation helpers
-- Depends on: Local filesystem and environment variables
-- Used by: All downstream registration and upload logic
+**配置层：**
+- 目的：合并 `config.json`、环境变量、CLI 参数，生成运行时配置
+- 包含：`_load_config()`、`_apply_cli_overrides()`、邮箱 / 上传配置校验函数
+- 依赖：本地文件系统与环境变量
+- 被谁使用：所有后续注册、OAuth、上传逻辑
 
-**Execution Layer:**
-- Purpose: Coordinate concurrent account registration tasks and summarize outcomes
-- Contains: `run_batch()`, `_register_one()` in `chatgpt_register.py`, plus `run_batch()` / `register_one()` in `codex/protocol_keygen.py`
-- Depends on: Worker functions, locks, output writers, and external HTTP services
-- Used by: CLI entry points only
+**执行层：**
+- 目的：协调并发注册任务并汇总结果
+- 包含：`run_batch()`、`_register_one()`，以及 `codex/protocol_keygen.py` 中对应的批处理入口
+- 依赖：worker 函数、锁、文件输出、远程 HTTP 服务
+- 被谁使用：CLI 入口
 
-**Integration Layer:**
-- Purpose: Interact with external mail providers, OpenAI endpoints, and upload targets
-- Contains: `EmailAdapter` implementations, `ChatGPTRegister`, upload helpers, sentinel-token helpers
-- Depends on: `curl-cffi`, `imaplib`, `requests` in the protocol utility, and remote services
-- Used by: Execution layer
+**集成层：**
+- 目的：对接邮箱提供者、OpenAI 接口、上传目标
+- 包含：`EmailAdapter` 及其实现、`ChatGPTRegister`、sentinel token 生成逻辑、上传辅助函数
+- 依赖：`curl-cffi`、`imaplib`、`requests`、远程服务
+- 被谁使用：执行层
 
-## Data Flow
+## 数据流
 
-**Main registration flow:**
-1. User runs `chatgpt-register` from the console script defined in `pyproject.toml`
-2. `main()` parses CLI flags and merges them with config and environment values
-3. `run_batch()` creates a thread pool and schedules `_register_one()` for each account
-4. `_register_one()` builds a `ChatGPTRegister` instance and selects an email adapter via `_build_email_adapter()`
-5. The adapter creates a mailbox, polling later for OTP messages
-6. `ChatGPTRegister` performs homepage, CSRF, registration, OTP, and account-creation HTTP steps against OpenAI auth endpoints
-7. Optional OAuth login runs, tokens are decoded and persisted, and optional CPA / Sub2API uploads fire
-8. Results are appended to output files and summarized to the terminal dashboard or plain logs
+**主注册流程：**
+1. 用户通过 `chatgpt-register` 或 `python chatgpt_register.py` 启动程序
+2. `main()` 解析 CLI 参数，并与 `config.json` / 环境变量合并
+3. `run_batch()` 按账号数创建线程池，调度 `_register_one()`
+4. `_register_one()` 创建 `ChatGPTRegister` 实例，并通过 `_build_email_adapter()` 选择邮箱适配器
+5. 适配器创建邮箱并在后续轮询 OTP 邮件
+6. `ChatGPTRegister` 依次执行首页、CSRF、注册、发送 OTP、校验 OTP、创建账号等 HTTP 步骤
+7. 可选执行 OAuth 登录，解码 token，写入本地文件，并按配置上传到 CPA / Sub2API
+8. 批处理层统计成功 / 失败并输出到普通日志或实时面板
 
-**State Management:**
-- Mostly stateless across runs; runtime state is in memory per process and per worker
-- Durable state is just local artifact files written under the repository root
-- Global module variables hold config and upload settings for the lifetime of the process
+**状态管理：**
+- 跨次运行基本无状态
+- 运行期状态保存在进程内存、线程局部 session 与少量全局配置变量中
+- 持久化状态只体现在输出文件与 `.planning/` 文档
 
-## Key Abstractions
+## 关键抽象
 
-**EmailAdapter:**
-- Purpose: Normalize temporary-mail operations across providers
-- Examples: `DuckMailAdapter`, `MailcowAdapter`, `MailTmAdapter`
-- Pattern: Strategy / adapter object selected from a provider registry
+**EmailAdapter：**
+- 目的：统一不同临时邮箱服务的创建、拉信与内容提取行为
+- 例子：`DuckMailAdapter`、`MailcowAdapter`、`MailTmAdapter`
+- 模式：策略 / 适配器模式
 
-**ChatGPTRegister:**
-- Purpose: Encapsulate the main multi-step OpenAI registration and OAuth flow
-- Examples: Session creation, sentinel token usage, redirect following, OTP submission
-- Pattern: Stateful service object bound to one worker and one HTTP session
+**ChatGPTRegister：**
+- 目的：封装主流程中的 OpenAI 注册与 OAuth 行为
+- 例子：session 初始化、sentinel token 构造、重定向跟踪、OTP 提交
+- 模式：绑定单个 worker 生命周期的有状态服务对象
 
-**RuntimeDashboard:**
-- Purpose: Provide a Rich-based concurrent execution view
-- Examples: Summary panel, worker-state table, log panel
-- Pattern: In-memory UI state container with synchronized updates
+**RuntimeDashboard：**
+- 目的：以 `rich` 构建并发执行面板
+- 例子：摘要区域、worker 状态表、日志窗口
+- 模式：带锁的内存态 UI 聚合器
 
-## Entry Points
+## 入口点
 
-**Primary CLI entry:**
-- Location: `chatgpt_register.py`
-- Triggers: `chatgpt-register` console script or `python chatgpt_register.py`
-- Responsibilities: Validate config, gather interactive options, run concurrent registration
+**主 CLI 入口：**
+- 位置：`chatgpt_register.py`
+- 触发方式：`chatgpt-register` console script 或直接运行 Python 文件
+- 职责：校验配置、处理交互、启动并发注册
 
-**Secondary utility entry:**
-- Location: `codex/protocol_keygen.py`
-- Triggers: Direct script execution
-- Responsibilities: Run a parallel HTTP-only registration and OAuth flow, then persist keys
+**协议工具入口：**
+- 位置：`codex/protocol_keygen.py`
+- 触发方式：直接执行脚本
+- 职责：运行另一套纯 HTTP 注册 / OAuth 流程，并保存生成结果
 
-## Error Handling
+## 错误处理
 
-**Strategy:** Raise exceptions inside integration helpers, catch near worker or CLI boundaries, and print operator-readable messages
+**总体策略：** 在集成边界抛异常，在 worker 或 CLI 边界集中捕获并输出可读错误
 
-**Patterns:**
-- Provider and upload config is checked up front with helper functions
-- Worker tasks convert failures into `(ok, email, err)` style tuples where possible
-- External-call failures are often handled with broad `except Exception` blocks and partial recovery
+**常见模式：**
+- 启动前通过辅助函数校验邮箱与上传配置
+- worker 尽量返回 `(ok, email, err)` 一类结果元组，避免线程异常直接冒泡
+- 外部调用周围大量使用宽泛的 `except Exception`，以便在脚本场景下继续运行或输出错误
 
-## Cross-Cutting Concerns
+## 横切关注点
 
-**Logging:**
-- Terminal-first logging through `print()` and optional Rich live panels
-- Logs focus on step progress and remote response status rather than structured telemetry
+**日志：**
+- 以终端输出为主，没有独立 logger 抽象
+- 重点记录步骤推进、状态码、上传结果、OAuth 流程状态
 
-**Validation:**
-- Manual validation only; no schema library is used for config or API responses
-- Provider-specific checks are split across helper functions and runtime branches
+**验证：**
+- 配置与响应主要依赖手写校验，没有 schema 系统
+- 项目级语言约束依赖仓库文件约定，而不是程序内硬编码
 
-**Authentication / Secrets:**
-- Credentials and tokens are read from config / env vars and sometimes persisted back to disk
-- No encryption, secret redaction, or secret-scoped storage layer exists
+**认证与 secret：**
+- secret 来自本地配置、环境变量或 CLI 参数
+- token 和账号元数据会被写回磁盘
+- 没有加密存储、脱敏日志或 secret manager 抽象
 
 ---
 
-*Architecture analysis: 2026-03-07*
-*Update when major patterns change*
+*架构分析：2026-03-07*
+*主要模式变化后更新*

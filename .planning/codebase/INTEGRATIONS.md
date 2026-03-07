@@ -1,113 +1,116 @@
-# External Integrations
+# 外部集成
 
-**Analysis Date:** 2026-03-07
+**分析日期：** 2026-03-07
 
-## APIs & External Services
+## API 与外部服务
 
-**Primary target service:**
-- OpenAI / ChatGPT auth endpoints - Registration and OAuth token exchange
-  - Integration method: Direct HTTP flows in `chatgpt_register.py` and `codex/protocol_keygen.py`
-  - Auth: Cookies, PKCE values, sentinel challenge responses, and OAuth client credentials
-  - Endpoints used: `/oauth/authorize`, `/oauth/token`, account continuation / registration / OTP endpoints on `https://auth.openai.com`
+**目标认证服务：**
+- OpenAI / ChatGPT 认证端点：负责注册、登录续接、OTP 验证与 OAuth token 交换
+  - 集成方式：`chatgpt_register.py` 与 `codex/protocol_keygen.py` 中的自定义 HTTP 流程
+  - 鉴权方式：Cookie、PKCE、sentinel challenge、OAuth client 参数
+  - 关键端点：`/oauth/authorize`、`/oauth/token`、账户续接 / 注册 / OTP 相关接口
 
-**Temporary email providers:**
-- DuckMail - Temporary mailbox creation and message polling
-  - SDK/Client: `curl-cffi` session in `chatgpt_register.py`
-  - Auth: Bearer token from `DUCKMAIL_BEARER`
-  - Endpoints used: `/accounts`, `/token`, `/messages`
-- Mail.tm - Temporary mailbox creation and message polling
-  - SDK/Client: `curl-cffi` session in `chatgpt_register.py`
-  - Auth: Provider-issued mailbox token
-  - Endpoints used: `/domains`, `/accounts`, `/token`, `/messages`
-- Mailcow - Self-hosted mailbox lifecycle
-  - Integration method: REST mailbox management plus IMAP inbox polling
-  - Auth: `X-API-Key` for API and mailbox password for IMAP
-  - Endpoints used: `/api/v1/add/mailbox`, `/api/v1/delete/mailbox`
+**临时邮箱提供者：**
+- DuckMail：创建邮箱并拉取邮件
+  - 客户端：`chatgpt_register.py` 中的 `curl-cffi` Session
+  - 鉴权：`DUCKMAIL_BEARER`
+  - 关键端点：`/accounts`、`/token`、`/messages`
+- Mail.tm：创建邮箱并拉取邮件
+  - 客户端：`chatgpt_register.py` 中的 `curl-cffi` Session
+  - 鉴权：邮箱账号换取的 provider token
+  - 关键端点：`/domains`、`/accounts`、`/token`、`/messages`
+- Mailcow：自建邮箱生命周期管理
+  - 集成方式：REST 创建 / 删除邮箱，IMAP 读取 OTP
+  - 鉴权：`X-API-Key` 与邮箱密码
+  - 关键端点：`/api/v1/add/mailbox`、`/api/v1/delete/mailbox`
 
-**Upload targets:**
-- CPA management platform - Optional token JSON upload from `chatgpt_register.py`
-  - Integration method: Multipart HTTP POST using `curl-cffi`
-  - Auth: Bearer token from `upload_api_token`
-  - Payload: Generated token JSON file
-- Sub2API - Optional account creation from OAuth token data
-  - Integration method: JSON REST API via `curl-cffi`
-  - Auth: `x-api-key` or bearer token
-  - Endpoints used: `/api/v1/admin/groups`, `/api/v1/admin/accounts`
+**上传目标：**
+- CPA 管理平台：可选上传 token JSON
+  - 集成方式：`curl-cffi` 发送 multipart POST
+  - 鉴权：`upload_api_token`
+  - 触发点：生成单账号 token JSON 之后
+- Sub2API：可选使用 OAuth token 创建账号
+  - 集成方式：JSON REST API
+  - 鉴权：`x-api-key` 或 Bearer Token
+  - 关键端点：`/api/v1/admin/groups`、`/api/v1/admin/accounts`
 
-## Data Storage
+## 数据存储
 
-**Databases:**
-- None - No internal database or ORM exists in this repository
+**数据库：**
+- 无：仓库内没有内部数据库、ORM 或迁移系统
 
-**File Storage:**
-- Local filesystem - Outputs and token artifacts are written to files beside the script
-  - Files: `registered_accounts.txt`, `ak.txt`, `rk.txt`, `codex_tokens/*.json`
-  - Auth: OS-level filesystem permissions only
+**文件存储：**
+- 本地文件系统：所有输出都写在仓库根目录附近
+  - 典型文件：`registered_accounts.txt`、`ak.txt`、`rk.txt`、`codex_tokens/*.json`
+  - 权限模型：依赖本地操作系统文件权限
 
-**Caching:**
-- None - State is held in memory during execution only
+**缓存：**
+- 无独立缓存层
+- 运行期状态只保存在进程内存中
 
-## Authentication & Identity
+## 认证与身份
 
-**Auth Provider:**
-- OpenAI auth service - Handles account registration, login continuation, OTP validation, and OAuth token issuance
-  - Implementation: Custom HTTP request sequencing with cookies, PKCE, and sentinel token generation
-  - Token storage: Plaintext files and JSON files on disk
-  - Session management: In-memory HTTP session cookies per worker
+**认证提供方：**
+- OpenAI auth：账户注册、邮箱 OTP、OAuth token 签发都依赖该服务
+  - 实现方式：自定义 HTTP 请求序列与 session cookie 管理
+  - Token 存储：纯文本文件与本地 JSON 文件
+  - Session 管理：每个 worker 维护独立内存态 session
 
-**OAuth Integrations:**
-- OpenAI OAuth client - Uses configured `oauth_client_id` and redirect URI
-  - Credentials: `oauth_client_id`, `oauth_redirect_uri`, and runtime session state
-  - Scopes: Implicitly tied to ChatGPT / Codex token issuance workflow in code
+**OAuth 集成：**
+- OpenAI OAuth Client：使用 `oauth_client_id` 与 `oauth_redirect_uri`
+  - 配置位置：`config.json` / `config.example.json`
+  - 用途：完成 Codex / ChatGPT token 获取流程
 
-## Monitoring & Observability
+## 监控与可观测性
 
-**Error Tracking:**
-- None - No external error tracker integration found
+**错误追踪：**
+- 无外部错误追踪平台接入
 
-**Analytics:**
-- None
+**分析：**
+- 无埋点分析平台
 
-**Logs:**
-- stdout / stderr only
-  - Integration: Plain `print()` calls or Rich live dashboard panels in `chatgpt_register.py`
+**日志：**
+- 仅 stdout / stderr
+  - 主方式：`print()`
+  - 可选增强：`rich` 实时面板
 
-## CI/CD & Deployment
+## CI / CD 与部署
 
-**Hosting:**
-- None - No service deployment manifests or runtime hosting config found
+**托管：**
+- 无服务托管配置
+- 这是本地脚本项目，不是部署型应用
 
-**CI Pipeline:**
-- None - No GitHub Actions, CI configs, or release pipeline files found
+**CI：**
+- 未发现 GitHub Actions、其他 CI 配置或发布流水线
 
-## Environment Configuration
+## 环境配置
 
-**Development:**
-- Required secrets vary by chosen mail provider and upload target
-- Secrets location: `config.json`, environment variables, or CLI flags
-- Mock / stub services: None implemented
+**开发环境：**
+- 所需 secret 取决于邮箱提供者与上传目标
+- secret 来源：`config.json`、环境变量、CLI 参数
+- Mock / Stub：当前没有
 
-**Staging:**
-- No separate staging environment conventions defined in repo docs or code
+**预发布环境：**
+- 未定义 staging 约定
 
-**Production:**
-- Secrets are expected to stay local and gitignored via `.gitignore`
-- No centralized secret manager integration exists
+**生产 / 实际执行：**
+- `.gitignore` 已忽略 `config.json`、`codex/config.json`、`codex_tokens/` 等敏感输出
+- 没有接入集中式 secret manager
 
-## Webhooks & Callbacks
+## 回调与回传
 
-**Incoming:**
-- OAuth redirect callback - `http://localhost:1455/auth/callback` is used as the redirect URI in config defaults
-  - Verification: Code extracts `code` query param from redirect URLs
-  - Events: OAuth authorization completion only
+**进入系统的回调：**
+- OAuth 重定向回调：默认使用 `http://localhost:1455/auth/callback`
+  - 校验方式：从回调 URL 中提取 `code` 参数
+  - 用途：OAuth 授权完成后的 token 交换
 
-**Outgoing:**
-- CPA upload call - Triggered after token JSON is written
-  - Retry logic: None beyond request-level exception handling
-- Sub2API account creation - Triggered after token generation when enabled
-  - Retry logic: None beyond request-level exception handling
+**发往外部的调用：**
+- CPA 上传：token JSON 写盘后触发
+  - 重试：仅有请求级异常处理，没有统一重试策略
+- Sub2API 账号创建：token 生成后触发
+  - 重试：仅有请求级异常处理，没有统一重试策略
 
 ---
 
-*Integration audit: 2026-03-07*
-*Update when adding/removing external services*
+*外部集成审计：2026-03-07*
+*新增或移除外部服务后更新*

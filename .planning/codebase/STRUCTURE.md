@@ -1,113 +1,126 @@
-# Codebase Structure
+# 代码结构
 
-**Analysis Date:** 2026-03-07
+**分析日期：** 2026-03-07
 
-## Directory Layout
+## 目录布局
 
 ```text
 chatgpt_register/
-├── .codex/                    # Vendored GSD workflow assets and local skill config
-├── .planning/                 # Generated planning artifacts (created by GSD workflows)
-│   └── codebase/              # Codebase map documents
-├── codex/                     # Secondary protocol key generation utility and docs
-├── chatgpt_register.egg-info/ # Generated packaging metadata
-├── chatgpt_register.py        # Main CLI implementation
-├── config.example.json        # Sample runtime configuration
-├── pyproject.toml             # Python package metadata and console script
-├── README.md                  # User-facing usage and safety notes
-└── uv.lock                    # Locked dependency graph for `uv`
+├── .codex/                    # GSD workflow、agent、skill 与本地 Codex 配置
+├── .planning/                 # GSD 生成的规划与代码地图
+│   ├── codebase/              # 代码库映射文档
+│   └── config.json            # GSD 项目配置，包含语言策略
+├── codex/                     # 协议 key 生成工具与说明文档
+├── chatgpt_register.egg-info/ # setuptools 生成的包元数据
+├── AGENTS.md                  # 仓库级通用行为 / 语言约束
+├── CLAUDE.md                  # GSD 子代理读取的项目级约束
+├── chatgpt_register.py        # 主 CLI 实现
+├── config.example.json        # 示例运行配置
+├── pyproject.toml             # Python 包定义与入口命令
+├── README.md                  # 用户说明文档
+└── uv.lock                    # `uv` 锁文件
 ```
 
-## Directory Purposes
+## 目录用途
 
-**`.codex/`:**
-- Purpose: GSD automation assets added to the repo for planning workflows
-- Contains: Agents, skills, templates, workflow markdown, and config
-- Key files: `.codex/get-shit-done/workflows/map-codebase.md`, `.codex/skills/gsd-map-codebase/SKILL.md`
-- Subdirectories: `agents/`, `skills/`, `get-shit-done/`
+**`.codex/`：**
+- 目的：承载 GSD 自动化资源与 agent 配置
+- 包含：`agents/`、`skills/`、`get-shit-done/`、`.codex/config.toml`
+- 关键文件：`.codex/get-shit-done/workflows/map-codebase.md`、`.codex/skills/gsd-map-codebase/SKILL.md`
+- 子目录：`agents/`、`skills/`、`get-shit-done/`
 
-**`codex/`:**
-- Purpose: Separate protocol key generator implementation and documentation
-- Contains: `protocol_keygen.py`, `README.md`
-- Key files: `codex/protocol_keygen.py`
-- Subdirectories: None
+**`.planning/`：**
+- 目的：保存 GSD 生成的项目状态与参考文档
+- 包含：`.planning/codebase/*.md`、`.planning/config.json`
+- 关键文件：`.planning/config.json` 中已记录中文优先输出策略
+- 子目录：`codebase/`
 
-**`chatgpt_register.egg-info/`:**
-- Purpose: Generated package metadata from local builds / installs
-- Contains: entry-point, dependency, and package metadata files
-- Key files: `entry_points.txt`, `requires.txt`, `PKG-INFO`
-- Subdirectories: None
+**`codex/`：**
+- 目的：保存独立的协议 key 生成工具
+- 包含：`protocol_keygen.py`、`README.md`
+- 关键文件：`codex/protocol_keygen.py`
+- 子目录：无
 
-## Key File Locations
+**`chatgpt_register.egg-info/`：**
+- 目的：本地构建 / 安装生成的包元数据
+- 包含：依赖、入口点、源文件索引等信息
+- 关键文件：`entry_points.txt`、`requires.txt`、`PKG-INFO`
+- 子目录：无
 
-**Entry Points:**
-- `chatgpt_register.py` - Primary CLI entry point and main implementation
-- `codex/protocol_keygen.py` - Standalone utility entry point
+## 关键文件位置
 
-**Configuration:**
-- `pyproject.toml` - Package metadata and script registration
-- `config.example.json` - Example runtime config to copy into `config.json`
-- `.gitignore` - Local secret and output exclusions
+**入口点：**
+- `chatgpt_register.py`：主程序入口与核心业务逻辑
+- `codex/protocol_keygen.py`：独立工具入口
 
-**Core Logic:**
-- `chatgpt_register.py` - All main business logic, adapters, OAuth flow, uploads, dashboard
-- `codex/protocol_keygen.py` - Alternate HTTP-only protocol flow implementation
+**配置：**
+- `pyproject.toml`：包元数据、依赖、console script
+- `config.example.json`：运行配置示例
+- `.planning/config.json`：GSD 项目配置
+- `.codex/config.toml`：GSD Agent 配置
+- `.gitignore`：忽略本地 secret 与运行产物
 
-**Testing:**
-- No `tests/` directory or test files were found
+**核心逻辑：**
+- `chatgpt_register.py`：注册流程、邮箱适配器、OAuth、上传、运行面板
+- `codex/protocol_keygen.py`：另一套纯 HTTP 协议流程
 
-**Documentation:**
-- `README.md` - Main usage documentation
-- `codex/README.md` - Secondary utility documentation
-- `.planning/codebase/*.md` - Generated reference docs for future planning
+**测试：**
+- 当前未发现 `tests/` 目录或测试文件
 
-## Naming Conventions
+**文档：**
+- `README.md`：主文档
+- `codex/README.md`：协议工具文档
+- `AGENTS.md`：通用行为 / 语言策略
+- `CLAUDE.md`：项目级 GSD 指令
+- `.planning/codebase/*.md`：代码地图参考文档
 
-**Files:**
-- Root Python code uses snake_case filenames: `chatgpt_register.py`, `protocol_keygen.py`
-- Documentation uses uppercase or descriptive markdown names: `README.md`, `SKILL.md`
-- Generated package metadata lives in `*.egg-info/`
+## 命名约定
 
-**Directories:**
-- Lowercase directory names dominate: `codex/`, `.codex/`
-- Dot-prefixed directories hold local tooling and planning state
+**文件：**
+- Python 模块使用 snake_case：`chatgpt_register.py`、`protocol_keygen.py`
+- 核心说明文档使用约定式命名：`README.md`、`AGENTS.md`、`CLAUDE.md`
+- 示例配置使用 `*.example.json`
 
-**Special Patterns:**
-- Single-file module style for major executables instead of a package tree
-- Config examples are committed as `*.example.json`; actual secret-bearing config is expected to be local only
+**目录：**
+- 目录大多使用小写：`codex/`、`.codex/`
+- 点目录用于本地工具与规划状态
 
-## Where to Add New Code
+**特殊模式：**
+- 主要可执行逻辑仍采用“单文件模块”而不是包化目录结构
+- 项目约束通过根目录文档文件传递给工具链
 
-**New registration feature:**
-- Primary code: `chatgpt_register.py`
-- Supporting docs: `README.md` and `config.example.json`
-- Follow-up docs: `.planning/codebase/*.md` if architecture or integration changes materially
+## 新代码应放哪里
 
-**New protocol utility behavior:**
-- Implementation: `codex/protocol_keygen.py`
-- Supporting docs: `codex/README.md`
+**新增注册功能：**
+- 主实现：`chatgpt_register.py`
+- 相关文档：`README.md`、`config.example.json`
+- 如影响结构或约束：同步更新 `.planning/codebase/*.md`
 
-**New tests:**
-- Recommended location: create a new top-level `tests/` tree
-- Suggested first targets: config parsing, upload target parsing, OTP extraction, provider adapters
+**新增协议工具能力：**
+- 实现：`codex/protocol_keygen.py`
+- 文档：`codex/README.md`
 
-**New tooling / workflow assets:**
-- GSD assets: `.codex/`
-- Packaging metadata: `pyproject.toml`
+**新增测试：**
+- 建议新增顶层 `tests/` 目录
+- 优先覆盖：配置解析、上传目标解析、OTP 提取、邮箱适配器
 
-## Special Directories
+**新增仓库约束：**
+- 面向 Codex / GSD 的行为约束：根目录 `AGENTS.md` 与 `CLAUDE.md`
+- 面向 GSD 配置的默认值：`.planning/config.json` 与 `.codex/config.toml`
 
-**`.planning/`:**
-- Purpose: Generated planning and mapping artifacts
-- Source: Created by GSD workflows, including this map-codebase run
-- Committed: Yes, unless project policy changes later
+## 特殊目录
 
-**`chatgpt_register.egg-info/`:**
-- Purpose: Build / install artifacts
-- Source: Generated by setuptools tooling
-- Committed: Currently present in the repo, though many teams would ignore it
+**`.planning/`：**
+- 目的：GSD 生成产物目录
+- 来源：工作流自动创建
+- 是否提交：当前项目已经提交这类文档
+
+**`chatgpt_register.egg-info/`：**
+- 目的：打包元数据
+- 来源：setuptools 生成
+- 是否提交：当前仓库中已存在，但这类目录在很多项目里通常不会提交
 
 ---
 
-*Structure analysis: 2026-03-07*
-*Update when directory structure changes*
+*结构分析：2026-03-07*
+*目录结构变化后更新*
