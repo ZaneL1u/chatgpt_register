@@ -58,11 +58,11 @@ Plans:
   3. 敏感字段（bearer token、API key 等）在输入时显示掩码而非明文
   4. 向导按「邮箱平台 → 注册参数 → 上传目标 → 确认摘要」分步推进，每步为独立 Screen
   5. 确认摘要页展示完整配置概览，用户确认后才进入注册流程
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — TUI 基础设施 + 邮箱/注册参数步骤（Wave 1）
+- [ ] 03-02-PLAN.md — 上传/摘要步骤 + CLI 接入闭环（Wave 2）
 
 ### Phase 4: CLI 集成与 Profile 管理
 **Goal**: TUI 向导、Profile 系统、CLI 入口完整串联，TUI + TOML 成为唯一配置方式
@@ -88,5 +88,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. 配置层基础 | 0/2 | Planning complete | - |
 | 2. 模块拆分 | 2/2 | Complete   | 2026-03-07 |
-| 3. TUI 配置向导 | 0/? | Not started | - |
+| 3. TUI 配置向导 | 0/2 | Planned    |  |
 | 4. CLI 集成与 Profile 管理 | 0/? | Not started | - |
