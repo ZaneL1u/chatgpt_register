@@ -32,7 +32,7 @@
 
 ### 架构改造 (ARCH)
 
-- [ ] **ARCH-01**: 拆分 `chatgpt_register.py` 为多模块包结构
+- [x] **ARCH-01**: 拆分 `chatgpt_register.py` 为多模块包结构
 - [ ] **ARCH-02**: 收拢 20+ 全局变量为配置 dataclass/Pydantic model，`run_batch()` 接受配置参数
 
 ## v2 Requirements
@@ -76,7 +76,7 @@
 | PROF-02 | Phase 4 | Pending |
 | PROF-03 | Phase 4 | Pending |
 | PROF-04 | Phase 4 | Pending |
-| ARCH-01 | Phase 2 | Pending |
+| ARCH-01 | Phase 2 | Complete |
 | ARCH-02 | Phase 1 | Done |
 
 **Coverage:**

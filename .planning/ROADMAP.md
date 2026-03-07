@@ -13,7 +13,7 @@
 小数阶段按数值顺序插入到相邻整数阶段之间。
 
 - [ ] **Phase 1: 配置层基础** - Pydantic 配置模型 + TOML ProfileManager + 全局变量收拢
-- [ ] **Phase 2: 模块拆分** - 单文件拆为多模块包结构，run_batch() 接受配置参数
+- [x] **Phase 2: 模块拆分** - 单文件拆为多模块包结构，run_batch() 接受配置参数 (completed 2026-03-07)
 - [ ] **Phase 3: TUI 配置向导** - Textual 多屏分步向导，覆盖完整配置流程
 - [ ] **Phase 4: CLI 集成与 Profile 管理** - 混合启动模式、非交互模式、移除旧配置方式
 
@@ -31,8 +31,8 @@
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — TDD 实现 RegisterConfig 数据模型（安装依赖 + Pydantic 模型 + 校验测试）
-- [ ] 01-02-PLAN.md — TDD 实现 ProfileManager TOML 持久化（保存/加载/列举/删除）
+- [x] 01-01-PLAN.md — TDD 实现 RegisterConfig 数据模型（安装依赖 + Pydantic 模型 + 校验测试）
+- [x] 01-02-PLAN.md — TDD 实现 ProfileManager TOML 持久化（保存/加载/列举/删除）
 
 ### Phase 2: 模块拆分
 **Goal**: chatgpt_register.py 拆分为清晰的多模块包结构，run_batch() 通过 RegisterConfig 参数驱动而非全局变量
@@ -45,8 +45,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — 创建包结构骨架 + config 子包迁移（Wave 1）
-- [ ] 02-02-PLAN.md — 提取核心模块 + 消除全局变量 + 删除旧文件（Wave 2）
+- [x] 02-01-PLAN.md — 创建包结构骨架 + config 子包迁移（Wave 1）
+- [x] 02-02-PLAN.md — 提取核心模块 + 消除全局变量 + 删除旧文件（Wave 2）
 
 ### Phase 3: TUI 配置向导
 **Goal**: 用户通过 Textual TUI 交互式完成所有注册配置，无需手动编辑任何文件
@@ -87,6 +87,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 配置层基础 | 0/2 | Planning complete | - |
-| 2. 模块拆分 | 0/? | Not started | - |
+| 2. 模块拆分 | 2/2 | Complete   | 2026-03-07 |
 | 3. TUI 配置向导 | 0/? | Not started | - |
 | 4. CLI 集成与 Profile 管理 | 0/? | Not started | - |
