@@ -60,9 +60,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONF-01 | Phase 1 | Pending |
-| CONF-02 | Phase 1 | Pending |
-| CONF-03 | Phase 1 | Pending |
+| CONF-01 | Phase 1 | Done |
+| CONF-02 | Phase 1 | Done |
+| CONF-03 | Phase 1 | Done |
 | CONF-04 | Phase 3 | Pending |
 | CONF-05 | Phase 4 | Pending |
 | TUI-01 | Phase 3 | Pending |
@@ -77,7 +77,7 @@
 | PROF-03 | Phase 4 | Pending |
 | PROF-04 | Phase 4 | Pending |
 | ARCH-01 | Phase 2 | Pending |
-| ARCH-02 | Phase 1 | Pending |
+| ARCH-02 | Phase 1 | Done |
 
 **Coverage:**
 - v1 requirements: 18 total
