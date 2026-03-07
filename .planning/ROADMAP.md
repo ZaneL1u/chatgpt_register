@@ -28,11 +28,11 @@
   2. ProfileManager 能将 RegisterConfig 实例保存为 TOML 文件到 `~/.chatgpt-register/profiles/`，并能从 TOML 文件还原为 RegisterConfig 实例
   3. 可通过参数指定 profile 存储路径，不依赖默认路径
   4. 现有 20+ 个全局变量已收拢为 RegisterConfig 数据类字段，不再有散落的模块级可变状态
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — TDD 实现 RegisterConfig 数据模型（安装依赖 + Pydantic 模型 + 校验测试）
+- [ ] 01-02-PLAN.md — TDD 实现 ProfileManager TOML 持久化（保存/加载/列举/删除）
 
 ### Phase 2: 模块拆分
 **Goal**: chatgpt_register.py 拆分为清晰的多模块包结构，run_batch() 通过 RegisterConfig 参数驱动而非全局变量
@@ -85,7 +85,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 配置层基础 | 0/? | Not started | - |
+| 1. 配置层基础 | 0/2 | Planning complete | - |
 | 2. 模块拆分 | 0/? | Not started | - |
 | 3. TUI 配置向导 | 0/? | Not started | - |
 | 4. CLI 集成与 Profile 管理 | 0/? | Not started | - |
