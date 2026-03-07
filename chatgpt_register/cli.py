@@ -5,12 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 from chatgpt_register.config.model import RegisterConfig
+from chatgpt_register.core.batch import run_batch
 from chatgpt_register.core.utils import as_bool, as_int, parse_int_list
 from chatgpt_register.upload.sub2api import prepare_sub2api_group_binding
-from chatgpt_register.core.batch import run_batch
 
 
 def _build_cli_parser():
@@ -257,6 +258,50 @@ def _resolve_count_and_workers(config_dict: dict, non_interactive, total_account
     return config_dict
 
 
+def _apply_cli_overrides(config_dict: dict, args) -> dict:
+    if args.upload_targets:
+        targets, unknown = _parse_upload_targets(args.upload_targets)
+        if unknown:
+            raise ValueError(f"无法识别的上传目标: {', '.join(unknown)}")
+        config_dict.setdefault("upload", {})["targets"] = targets
+
+    if args.sub2api_api_base is not None:
+        config_dict.setdefault("upload", {}).setdefault("sub2api", {})["api_base"] = args.sub2api_api_base.strip().rstrip("/")
+    if args.sub2api_admin_api_key is not None:
+        config_dict.setdefault("upload", {}).setdefault("sub2api", {})["admin_api_key"] = args.sub2api_admin_api_key.strip()
+    if args.sub2api_bearer_token is not None:
+        config_dict.setdefault("upload", {}).setdefault("sub2api", {})["bearer_token"] = args.sub2api_bearer_token.strip()
+    if args.sub2api_group_id is not None:
+        config_dict.setdefault("upload", {}).setdefault("sub2api", {})["group_ids"] = [args.sub2api_group_id]
+    if args.proxy is not None:
+        config_dict.setdefault("registration", {})["proxy"] = args.proxy.strip()
+    if args.total_accounts is not None:
+        if args.total_accounts <= 0:
+            raise ValueError("--total-accounts 必须大于 0")
+        config_dict.setdefault("registration", {})["total_accounts"] = args.total_accounts
+    if args.workers is not None:
+        if args.workers <= 0:
+            raise ValueError("--workers 必须大于 0")
+        config_dict.setdefault("registration", {})["workers"] = args.workers
+    return config_dict
+
+
+def _should_launch_tui(args) -> bool:
+    return (
+        not args.non_interactive
+        and sys.stdin.isatty()
+        and sys.stdout.isatty()
+    )
+
+
+def _launch_tui(config_dict: dict) -> RegisterConfig | None:
+    from chatgpt_register.tui import WizardApp
+
+    app = WizardApp(initial_config_dict=config_dict)
+    result = app.run()
+    return result
+
+
 def main(argv=None):
     try:
         parser = _build_cli_parser()
@@ -264,22 +309,15 @@ def main(argv=None):
 
         legacy = _load_legacy_config()
         config_dict = _legacy_to_register_config_dict(legacy)
+        config_dict = _apply_cli_overrides(config_dict, args)
 
-        if args.upload_targets:
-            targets, unknown = _parse_upload_targets(args.upload_targets)
-            if unknown:
-                print(f"无法识别的上传目标: {', '.join(unknown)}")
-                return 2
-            config_dict.setdefault("upload", {})["targets"] = targets
-
-        if args.sub2api_api_base is not None:
-            config_dict.setdefault("upload", {}).setdefault("sub2api", {})["api_base"] = args.sub2api_api_base.strip().rstrip("/")
-        if args.sub2api_admin_api_key is not None:
-            config_dict.setdefault("upload", {}).setdefault("sub2api", {})["admin_api_key"] = args.sub2api_admin_api_key.strip()
-        if args.sub2api_bearer_token is not None:
-            config_dict.setdefault("upload", {}).setdefault("sub2api", {})["bearer_token"] = args.sub2api_bearer_token.strip()
-        if args.sub2api_group_id is not None:
-            config_dict.setdefault("upload", {}).setdefault("sub2api", {})["group_ids"] = [args.sub2api_group_id]
+        if _should_launch_tui(args):
+            config = _launch_tui(config_dict)
+            if config is None:
+                print("[Info] 已取消 TUI 配置，未执行注册。")
+                return 0
+            run_batch(config)
+            return 0
 
         config_dict = _resolve_proxy_from_inputs(config_dict, args.non_interactive, args.proxy)
         config_dict = _resolve_count_and_workers(config_dict, args.non_interactive, args.total_accounts, args.workers)
