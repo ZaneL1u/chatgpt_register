@@ -6,8 +6,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "curl-cffi>=0.7.0",
+  "pydantic>=2.12,<3",
   "questionary>=2.1.0",
   "rich>=13.7.0",
+  "tomli-w>=1.2",
 ]
 scripts = { chatgpt-register = "chatgpt_register:main" }
 
@@ -17,3 +19,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 py-modules = ["chatgpt_register"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
