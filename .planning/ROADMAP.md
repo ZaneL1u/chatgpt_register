@@ -42,10 +42,11 @@ Plans:
   1. 项目以 Python 包结构组织（config/、core/、adapters/、upload/、tui/ 等子模块），不再存在 2000+ 行的单文件
   2. `run_batch()` 接受 RegisterConfig 实例作为参数，执行全部注册流程
   3. 所有现有功能（批量注册、OTP 验证、token 获取、结果上传、代理支持）在拆分后保持正常工作
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md — 创建包结构骨架 + config 子包迁移（Wave 1）
+- [ ] 02-02-PLAN.md — 提取核心模块 + 消除全局变量 + 删除旧文件（Wave 2）
 
 ### Phase 3: TUI 配置向导
 **Goal**: 用户通过 Textual TUI 交互式完成所有注册配置，无需手动编辑任何文件
