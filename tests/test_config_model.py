@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from config_model import RegisterConfig, format_validation_errors
+from chatgpt_register.config.model import RegisterConfig, format_validation_errors
 
 
 class TestValidConfigs:

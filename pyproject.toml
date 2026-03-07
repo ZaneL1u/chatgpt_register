@@ -11,14 +11,14 @@ dependencies = [
   "rich>=13.7.0",
   "tomli-w>=1.2",
 ]
-scripts = { chatgpt-register = "chatgpt_register:main" }
+scripts = { chatgpt-register = "chatgpt_register.cli:main" }
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-py-modules = ["chatgpt_register"]
+[tool.setuptools.packages.find]
+include = ["chatgpt_register*"]
 
 [dependency-groups]
 dev = [

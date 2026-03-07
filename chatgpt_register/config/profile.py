@@ -12,7 +12,7 @@ from pathlib import Path
 
 import tomli_w
 
-from config_model import RegisterConfig
+from chatgpt_register.config.model import RegisterConfig
 
 _DEFAULT_BASE = Path.home() / ".chatgpt-register" / "profiles"
 

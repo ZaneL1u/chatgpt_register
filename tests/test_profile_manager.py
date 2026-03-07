@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from config_model import RegisterConfig
-from profile_manager import ProfileManager
+from chatgpt_register.config.model import RegisterConfig
+from chatgpt_register.config.profile import ProfileManager
 
 
 class TestSaveAndLoad:
