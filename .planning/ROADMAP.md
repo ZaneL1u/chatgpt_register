@@ -14,7 +14,7 @@
 
 - [ ] **Phase 1: 配置层基础** - Pydantic 配置模型 + TOML ProfileManager + 全局变量收拢
 - [x] **Phase 2: 模块拆分** - 单文件拆为多模块包结构，run_batch() 接受配置参数 (completed 2026-03-07)
-- [ ] **Phase 3: TUI 配置向导** - Textual 多屏分步向导，覆盖完整配置流程
+- [x] **Phase 3: TUI 配置向导** - Textual 多屏分步向导，覆盖完整配置流程 (completed 2026-03-08)
 - [ ] **Phase 4: CLI 集成与 Profile 管理** - 混合启动模式、非交互模式、移除旧配置方式
 
 ## Phase Details
@@ -61,8 +61,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — TUI 基础设施 + 邮箱/注册参数步骤（Wave 1）
-- [ ] 03-02-PLAN.md — 上传/摘要步骤 + CLI 接入闭环（Wave 2）
+- [x] 03-01-PLAN.md — TUI 基础设施 + 邮箱/注册参数步骤（Wave 1）
+- [x] 03-02-PLAN.md — 上传/摘要步骤 + CLI 接入闭环（Wave 2）
 
 ### Phase 4: CLI 集成与 Profile 管理
 **Goal**: TUI 向导、Profile 系统、CLI 入口完整串联，TUI + TOML 成为唯一配置方式
@@ -88,5 +88,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. 配置层基础 | 0/2 | Planning complete | - |
 | 2. 模块拆分 | 2/2 | Complete   | 2026-03-07 |
-| 3. TUI 配置向导 | 1/2 | In Progress|  |
+| 3. TUI 配置向导 | 2/2 | Complete    | 2026-03-08 |
 | 4. CLI 集成与 Profile 管理 | 0/? | Not started | - |
