@@ -1,6 +1,6 @@
 # chatgpt-register
 
-基于 Python 的并发注册脚本，支持多邮箱提供者（`duckmail` / `mailcow` / `mailtm`），可选执行 OAuth 并将 token 落盘或上传到外部平台。
+基于 Python 的批量注册工具，支持多邮箱提供者（`duckmail` / `mailcow` / `mailtm`），可选执行 OAuth，并将 token 落盘或上传到外部平台。
 
 ## 声明
 
@@ -15,12 +15,13 @@
 - 自动拉取邮箱 OTP（Mailcow 走 IMAP，临时邮箱走 API）。
 - 可选 OAuth 流程，输出 `access_token` / `refresh_token` / 单账号 JSON。
 - 可选上传到 CPA 或 Sub2API。
+- 基于 Textual 的交互式 TUI 向导与 TOML profile 持久化。
 
 ## 能力边界
 
 - 这是一个脚本型工具，不保证服务端接口长期稳定。
 - 受目标站点策略、邮箱域信誉、网络环境影响，成功率存在波动。
-- `questionary` 仅用于交互式 TUI 选择（非交互模式无需手动菜单）。
+- 主 CLI 已完全切换到 `TUI + TOML profile`；`config.json`、环境变量覆盖和运行时补问都已废弃。
 
 ## 快速开始
 
@@ -35,174 +36,119 @@
 uv sync
 ```
 
-### 3) 初始化配置
-
-```bash
-cp config.example.json config.json
-```
-
-至少设置以下内容：
-
-- `email_provider`
-- 对应邮箱提供者的必填字段
-- 如需上传 token，再补充上传配置
-
-### 4) 运行
+### 3) 首次创建 profile
 
 ```bash
 uv run chatgpt-register
 ```
 
-查看 CLI 参数：
+首次进入后会打开 Textual 向导。按步骤填写：
+
+- 邮箱平台与对应凭证
+- 注册数量、并发、代理与输出文件
+- 上传目标（CPA / Sub2API）
+- 摘要确认，并在最后保存为 TOML profile
+
+默认 profile 目录：`~/.chatgpt-register/profiles/`
+
+### 4) 运行已保存 profile
 
 ```bash
-uv run chatgpt-register --help
+uv run chatgpt-register --profile your-profile-name
 ```
 
-## 邮箱提供者配置
-
-### DuckMail
-
-必填：
-
-- `email_provider=duckmail`
-- `duckmail_bearer`
-
-可选：
-
-- `duckmail_api_base`（默认 `https://api.duckmail.sbs`）
-
-### Mailcow
-
-必填：
-
-- `email_provider=mailcow`
-- `mailcow_api_url`
-- `mailcow_api_key`
-- `mailcow_domain`
-
-可选：
-
-- `mailcow_imap_host`（不填时尝试从 `mailcow_api_url` 推断）
-- `mailcow_imap_port`（默认 `993`）
-
-说明：Mailcow 模式会在任务结束后尝试删除临时邮箱。
-
-### Mail.tm
-
-必填：
-
-- `email_provider=mailtm`
-
-可选：
-
-- `mailtm_api_base`（默认 `https://api.mail.tm`）
-
-## OAuth 与上传
-
-### OAuth
-
-- `enable_oauth=true` 时执行 OAuth。
-- `oauth_required=true` 时，OAuth 失败会判定该账号任务失败。
-- 输出文件：
-  - `ak_file`（access token）
-  - `rk_file`（refresh token）
-  - `token_json_dir/*.json`（单账号 token 数据）
-
-### 上传目标
-
-`upload_targets` 支持：
-
-- `none`
-- `cpa`
-- `sub2api`
-- `both`（或 `cpa,sub2api`）
-
-当目标包含 `cpa` 时需配置：
-
-- `upload_api_url`
-- `upload_api_token`
-
-当目标包含 `sub2api` 时需配置：
-
-- `sub2api_api_base`
-- `sub2api_admin_api_key` 或 `sub2api_bearer_token`
-
-Sub2API 需要绑定 `openai` 分组：
-
-- 交互模式：运行时选择分组
-- 非交互模式：传 `--sub2api-group-id`，或传 `--sub2api-auto-select-first-group`
-
-## 非交互模式示例
+自动化/CI 场景建议显式加上：
 
 ```bash
-uv run chatgpt-register \
-  --non-interactive \
-  --upload-targets sub2api \
-  --sub2api-api-base https://sub2api.example.com \
-  --sub2api-admin-api-key admin_xxx \
-  --sub2api-group-id 6 \
-  --proxy http://127.0.0.1:7890 \
-  --total-accounts 5 \
-  --workers 3
+uv run chatgpt-register --non-interactive --profile your-profile-name
+```
+
+如果 profile 不在默认目录，可指定：
+
+```bash
+uv run chatgpt-register --profile your-profile-name --profiles-dir /path/to/profiles
 ```
 
 ## CLI 参数
 
 | 参数 | 说明 |
 | --- | --- |
-| `--non-interactive` | 非交互运行，不进行输入询问 |
-| `--upload-targets` | `none/cpa/sub2api/both`（支持 `cpa,sub2api`） |
-| `--proxy` | 代理地址；传空字符串可强制不使用代理 |
-| `--total-accounts` | 注册数量（`>0`） |
-| `--workers` | 并发数（`>0`） |
-| `--sub2api-api-base` | Sub2API 地址 |
-| `--sub2api-admin-api-key` | Sub2API Admin API Key（`x-api-key`） |
-| `--sub2api-bearer-token` | Sub2API Bearer Token（`Authorization`） |
-| `--sub2api-group-id` | Sub2API 分组 ID（openai 平台） |
-| `--sub2api-auto-select-first-group` | 非交互且未指定 group-id 时，自动选第一个 openai 分组 |
+| `--profile` | 直接加载指定 TOML profile 并执行 |
+| `--profiles-dir` | 指定 profile 存储目录 |
+| `--non-interactive` | 禁止交互；未传 `--profile` 时直接失败 |
 
-## 配置优先级
+### 启动路由
 
-`CLI 参数 > 环境变量 > config.json`。
+- 传入 `--profile`：直接加载 profile 并执行，不进入 TUI。
+- 未传 `--profile` 且当前终端可交互：启动 TUI，可选择已有 profile、创建新 profile 或基于已有 profile 派生。
+- 非交互终端或显式 `--non-interactive`：必须提供 `--profile`。
 
-常用环境变量：
+## Profile 说明
 
-- `EMAIL_PROVIDER`
-- `DUCKMAIL_BEARER`
-- `MAILCOW_API_URL`
-- `MAILCOW_API_KEY`
-- `MAILCOW_DOMAIN`
-- `MAILTM_API_BASE`
-- `PROXY`
-- `TOTAL_ACCOUNTS`
-- `ENABLE_OAUTH`
-- `OAUTH_REQUIRED`
-- `UPLOAD_TARGETS`
-- `UPLOAD_API_URL`
-- `UPLOAD_API_TOKEN`
-- `SUB2API_API_BASE`
-- `SUB2API_ADMIN_API_KEY`
-- `SUB2API_BEARER_TOKEN`
-- `SUB2API_GROUP_IDS`
+每个 profile 都是一个 TOML 文件，运行期不再接受额外业务参数覆盖。也就是说：
 
-## 输出文件
+- 不再从 `config.json` 读取配置
+- 不再读取环境变量来覆盖 profile
+- 不再通过 `input()` 补齐代理、数量、并发或上传凭证
 
-- `registered_accounts.txt`  
-  `email----chatgpt_password----email_password----oauth=ok/fail`
-- `ak.txt`（每行一个 `access_token`）
-- `rk.txt`（每行一个 `refresh_token`）
+如果当前目录仍有 `config.json`，CLI 只会输出迁移提示，不会自动加载。
+
+## 邮箱与上传配置
+
+### 邮箱提供者
+
+- `duckmail`：需要 bearer token
+- `mailcow`：需要 API URL / API Key / 域名 / IMAP 信息
+- `mailtm`：使用 API Base 即可
+
+这些信息都在 TUI 中录入，并最终保存在 TOML profile 中。
+
+### OAuth 输出
+
+运行后会按 profile 中的注册配置输出：
+
+- `registered_accounts.txt`
+- `ak.txt`
+- `rk.txt`
 - `codex_tokens/<email>.json`
+
+文件名和目录同样由 profile 的 `registration` 配置决定。
+
+### Sub2API
+
+Sub2API 的 `api_base`、凭证和 `group_ids` 必须在保存 profile 时就已经完整固化。
+
+运行阶段只会做校验，不会再：
+
+- 询问 Sub2API 地址
+- 询问 Admin API Key / Bearer Token
+- 运行时拉取分组后让你再选一次
+
+如果 profile 中缺少 Sub2API 分组绑定，CLI 会快速失败，并提示你回到交互式 TUI 修复该 profile。
 
 ## 故障排查
 
-### `email_provider=duckmail 但未设置 DUCKMAIL_BEARER`
+### 非交互模式报错：必须提供 `--profile`
 
-补齐 `duckmail_bearer` 或环境变量 `DUCKMAIL_BEARER`。
+这是预期行为。请先运行：
 
-### `email_provider=mailcow 但缺少必要配置`
+```bash
+uv run chatgpt-register
+```
 
-补齐 `mailcow_api_url`、`mailcow_api_key`、`mailcow_domain`。
+完成一次交互式创建并保存 profile，随后再使用：
+
+```bash
+uv run chatgpt-register --non-interactive --profile your-profile-name
+```
+
+### 当前目录还有 `config.json`
+
+这是旧路径残留。CLI 只会提示迁移，不会再读取它。请改用 TOML profile。
+
+### Sub2API 缺少分组绑定
+
+用交互式 TUI 打开该 profile，重新选择 Sub2API 的 openai 分组并保存，然后再执行 `--profile`。
 
 ### `unsupported_email`
 
@@ -212,23 +158,17 @@ uv run chatgpt-register \
 
 - 检查 IMAP 连通性（host/port/SSL）。
 - 确认邮箱创建成功且能登录。
-- 降低并发并先跑 `1` 账号验证链路。
+- 降低并发并先跑 `1` 个账号验证链路。
 
 ### OAuth 失败但你只关心注册
 
-设置：
-
-```json
-{
-  "enable_oauth": true,
-  "oauth_required": false
-}
-```
+请在 TUI 中关闭“OAuth 必须成功”要求，保存回 profile 后再运行。
 
 ## 目录说明
 
-- `chatgpt_register.py`：主程序入口
-- `config.example.json`：配置示例
+- `chatgpt_register/cli.py`：主 CLI 入口
+- `chatgpt_register/tui/`：Textual 向导
+- `chatgpt_register/config/profile.py`：TOML profile 管理
 - `codex/protocol_keygen.py`：独立工具（非主流程）
 
 ## 贡献
