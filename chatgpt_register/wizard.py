@@ -172,7 +172,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     provider_key = provider.lower().replace(".", "")
-    provider_prefill = prefill.get(provider_key, {})
+    provider_prefill = prefill.get(provider_key) or {}
 
     if provider == "DuckMail":
         api_base = questionary.text(
@@ -305,7 +305,7 @@ def _ask_upload_config(prefill: dict[str, Any], proxy: str) -> dict[str, Any] | 
     sub2api_config = None
 
     if target in ("cpa", "both"):
-        cpa_prefill = prefill.get("cpa", {})
+        cpa_prefill = prefill.get("cpa") or {}
         cpa_api_url = questionary.text(
             "CPA API URL",
             default=cpa_prefill.get("api_url", ""),
@@ -325,7 +325,7 @@ def _ask_upload_config(prefill: dict[str, Any], proxy: str) -> dict[str, Any] | 
         }
 
     if target in ("sub2api", "both"):
-        sub2api_prefill = prefill.get("sub2api", {})
+        sub2api_prefill = prefill.get("sub2api") or {}
 
         api_base = questionary.text(
             "Sub2API Base",
