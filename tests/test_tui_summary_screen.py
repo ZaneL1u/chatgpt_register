@@ -4,7 +4,9 @@ import pytest
 from textual.widgets import Button, Input, Static
 
 from chatgpt_register.config.model import RegisterConfig
+from chatgpt_register.config.profile import ProfileManager
 from chatgpt_register.tui.app import WizardApp
+from chatgpt_register.tui.state import WizardState
 
 
 @pytest.mark.asyncio
@@ -50,3 +52,45 @@ async def test_summary_returns_config_after_inline_edit(sample_duckmail_dict: di
 
         assert isinstance(app.return_value, RegisterConfig)
         assert app.return_value.registration.total_accounts == 7
+
+
+@pytest.mark.asyncio
+async def test_summary_cancel_save_does_not_persist_profile(tmp_profiles_dir, sample_duckmail_dict: dict) -> None:
+    profile_manager = ProfileManager(base_dir=tmp_profiles_dir)
+    app = WizardApp(profile_manager=profile_manager)
+    app.wizard_state = WizardState.from_config_dict(sample_duckmail_dict, require_profile_save=True)
+
+    async with app.run_test(size=(120, 60)) as pilot:
+        app.go_to_step("summary")
+        await pilot.pause()
+        app.screen.query_one("#next-button", Button).press()
+        await pilot.pause()
+        app.screen.query_one("#save-profile-name", Input).value = "duckmail-new"
+        await pilot.pause()
+        app.screen.query_one("#cancel-save-profile", Button).press()
+        await pilot.pause()
+
+        assert app.current_screen_name == "summary"
+        assert app.return_value is None
+        assert profile_manager.exists("duckmail-new") is False
+
+
+@pytest.mark.asyncio
+async def test_summary_save_profile_returns_config_and_persists(tmp_profiles_dir, sample_duckmail_dict: dict) -> None:
+    profile_manager = ProfileManager(base_dir=tmp_profiles_dir)
+    app = WizardApp(profile_manager=profile_manager)
+    app.wizard_state = WizardState.from_config_dict(sample_duckmail_dict, require_profile_save=True)
+
+    async with app.run_test(size=(120, 60)) as pilot:
+        app.go_to_step("summary")
+        await pilot.pause()
+        app.screen.query_one("#next-button", Button).press()
+        await pilot.pause()
+        app.screen.query_one("#save-profile-name", Input).value = "duckmail-new"
+        await pilot.pause()
+        app.screen.query_one("#confirm-save-profile", Button).press()
+        await pilot.pause()
+
+        assert isinstance(app.return_value, RegisterConfig)
+        assert profile_manager.exists("duckmail-new") is True
+        assert profile_manager.load("duckmail-new").email.provider == "duckmail"

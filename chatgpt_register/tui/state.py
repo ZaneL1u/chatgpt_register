@@ -66,6 +66,9 @@ DEFAULT_OAUTH: dict[str, Any] = {
 class WizardState:
     """跨 Screen 保留的配置草稿。"""
 
+    profile_name: str = ""
+    source_profile_name: str | None = None
+    require_profile_save: bool = False
     email_provider: str = "mailtm"
     draft_email: dict[str, dict[str, Any]] = field(
         default_factory=lambda: {
@@ -84,9 +87,19 @@ class WizardState:
     oauth: dict[str, Any] = field(default_factory=lambda: dict(DEFAULT_OAUTH))
 
     @classmethod
-    def from_config_dict(cls, config_dict: dict[str, Any] | None = None) -> "WizardState":
+    def from_config_dict(
+        cls,
+        config_dict: dict[str, Any] | None = None,
+        *,
+        profile_name: str = "",
+        source_profile_name: str | None = None,
+        require_profile_save: bool = False,
+    ) -> "WizardState":
         config_dict = config_dict or {}
         state = cls()
+        state.profile_name = profile_name
+        state.source_profile_name = source_profile_name
+        state.require_profile_save = require_profile_save
 
         email = config_dict.get("email", {})
         provider = str(email.get("provider") or state.email_provider).strip().lower()

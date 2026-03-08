@@ -26,7 +26,7 @@ SENSITIVE_INPUT_IDS = {
 
 class SummaryScreen(BaseWizardScreen):
     STEP_TITLE = "步骤 4/4 · 确认摘要"
-    STEP_HINT = "这里是唯一允许回改配置的页面；确认无误后将直接开始执行。"
+    STEP_HINT = "这里是唯一允许回改配置的页面；确认无误后将进入最终确认。"
     NEXT_LABEL = "我已确认，立即执行"
 
     def __init__(self) -> None:
@@ -173,6 +173,7 @@ class SummaryScreen(BaseWizardScreen):
         self.query_one("#summary-oauth-client-id", Input).value = str(state.oauth["client_id"])
         self.query_one("#summary-oauth-redirect-uri", Input).value = str(state.oauth["redirect_uri"])
         self._set_sensitive_visibility()
+        self._update_next_button_label()
         self.refresh_preview()
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -209,13 +210,13 @@ class SummaryScreen(BaseWizardScreen):
 
     def validate_current_step(self) -> list[str]:
         summary: list[str] = []
-        email_errors = validate_email_values(self.wizard_state.email_provider, self.wizard_state.draft_email[self.wizard_state.email_provider])
+        email_errors = validate_email_values(
+            self.wizard_state.email_provider,
+            self.wizard_state.draft_email[self.wizard_state.email_provider],
+        )
         registration_errors = validate_registration_values(self.wizard_state.registration)
         upload_errors = validate_upload_values(self.wizard_state.upload)
-        field_errors = {
-            **{f"summary-{key.removeprefix(self.wizard_state.email_provider + '-')}": value for key, value in {}.items()},
-        }
-        mapped = {}
+        mapped: dict[str, str] = {}
         mapped.update(_map_email_errors(self.wizard_state.email_provider, email_errors))
         mapped.update(_map_registration_errors(registration_errors))
         mapped.update(_map_upload_errors(upload_errors))
@@ -264,7 +265,11 @@ class SummaryScreen(BaseWizardScreen):
         errors = self.validate_current_step()
         if errors:
             return
-        self.app.exit(self.wizard_state.build_config())
+        config = self.wizard_state.build_config()
+        if self.app.should_prompt_profile_save():
+            self.app.request_profile_save(config)
+            return
+        self.app.exit(config)
 
     def refresh_preview(self) -> None:
         preview = self.wizard_state.export_config_dict()
@@ -338,6 +343,11 @@ class SummaryScreen(BaseWizardScreen):
             except Exception:
                 continue
 
+    def _update_next_button_label(self) -> None:
+        label = "保存 profile 并执行" if self.app.should_prompt_profile_save() else self.NEXT_LABEL
+        self.query_one("#next-button", Button).label = label
+
+
 
 def _mask_sensitive(payload: dict) -> None:
     for path in [
@@ -355,10 +365,12 @@ def _mask_sensitive(payload: dict) -> None:
             node[path[-1]] = _mask(value)
 
 
+
 def _mask(value: str) -> str:
     if len(value) <= 4:
         return "*" * len(value)
     return f"{value[:2]}***{value[-2:]}"
+
 
 
 def _map_email_errors(provider: str, errors: dict[str, str]) -> dict[str, str]:
@@ -381,6 +393,7 @@ def _map_email_errors(provider: str, errors: dict[str, str]) -> dict[str, str]:
     return {mapping[provider][key]: value for key, value in errors.items() if key in mapping[provider]}
 
 
+
 def _map_registration_errors(errors: dict[str, str]) -> dict[str, str]:
     mapping = {
         "registration-total-accounts": "summary-total-accounts",
@@ -392,6 +405,7 @@ def _map_registration_errors(errors: dict[str, str]) -> dict[str, str]:
         "registration-token-json-dir": "summary-token-json-dir",
     }
     return {mapping[key]: value for key, value in errors.items() if key in mapping}
+
 
 
 def _map_upload_errors(errors: dict[str, str]) -> dict[str, str]:
