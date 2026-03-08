@@ -7,6 +7,7 @@ import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 from chatgpt_register.adapters.mailcow import MailcowAdapter
 from chatgpt_register.config.model import RegisterConfig
@@ -16,6 +17,33 @@ from chatgpt_register.dashboard import RICH_AVAILABLE, RuntimeDashboard, route_p
 
 _print_lock = threading.Lock()
 _file_lock = threading.Lock()
+_log_lock = threading.Lock()
+_log_file_handle = None
+
+
+def _open_log_file(log_path: str):
+    """打开日志文件，自动创建父目录。"""
+    global _log_file_handle
+    if not log_path:
+        return
+    p = Path(log_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    _log_file_handle = p.open("a", encoding="utf-8")
+
+
+def _close_log_file():
+    global _log_file_handle
+    if _log_file_handle:
+        _log_file_handle.close()
+        _log_file_handle = None
+
+
+def _log_write(msg: str):
+    """线程安全地写一行到日志文件。"""
+    if _log_file_handle:
+        with _log_lock:
+            _log_file_handle.write(msg + "\n")
+            _log_file_handle.flush()
 
 
 def _email_provider_endpoint_hint(config: RegisterConfig) -> str:
@@ -121,11 +149,32 @@ def _register_one(idx, total, config: RegisterConfig, output_file: str, print_lo
 
 def run_batch(config: RegisterConfig):
     """并发批量注册，接收 RegisterConfig 实例作为唯一配置入口。"""
+    import builtins
+
     total_accounts = config.registration.total_accounts
     output_file = config.registration.output_file
+    log_file = config.registration.log_file
     max_workers = config.registration.workers
     actual_workers = min(max_workers, total_accounts)
     provider_name = provider_display_name(config.email.provider)
+
+    # 设置日志文件
+    if log_file:
+        _open_log_file(log_file)
+        _log_write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 开始批量注册")
+
+    # 包装 print，同时写入日志文件
+    original_print = builtins.print
+
+    def _tee_print(*args, **kwargs):
+        original_print(*args, **kwargs)
+        if _log_file_handle:
+            sep = kwargs.get("sep", " ")
+            msg = sep.join(str(a) for a in args)
+            _log_write(msg)
+
+    if log_file:
+        builtins.print = _tee_print
 
     dashboard = None
     if RICH_AVAILABLE and sys.stdin.isatty() and sys.stdout.isatty():
@@ -134,6 +183,16 @@ def run_batch(config: RegisterConfig):
             max_workers=actual_workers,
             provider_name=provider_name,
         )
+        # 当 dashboard 启用时，print 会被重定向到 dashboard.log()
+        # 需要额外 hook dashboard.log 来同时写入日志文件
+        if log_file:
+            _orig_dashboard_log = dashboard.log
+
+            def _tee_dashboard_log(message: str):
+                _orig_dashboard_log(message)
+                _log_write(message)
+
+            dashboard.log = _tee_dashboard_log
         dashboard.start()
     elif not RICH_AVAILABLE:
         print("未安装 rich，已回退为普通日志输出。执行 `uv sync` 可启用实时面板。")
@@ -197,3 +256,8 @@ def run_batch(config: RegisterConfig):
         if success_count > 0:
             print(f"  结果文件: {output_file}")
         print(f"{'#'*60}")
+
+        if log_file:
+            builtins.print = original_print
+            _close_log_file()
+            original_print(f"  日志已保存到: {log_file}")

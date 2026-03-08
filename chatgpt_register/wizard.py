@@ -283,6 +283,25 @@ def _ask_registration_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
     if None in (total_accounts, workers, proxy):
         return None
 
+    # 日志文件
+    from datetime import datetime
+    default_log = prefill.get("log_file", "")
+    enable_log = questionary.confirm(
+        "是否保存运行日志?",
+        default=bool(default_log),
+    ).ask()
+
+    log_file = ""
+    if enable_log:
+        default_name = default_log or f"logs/register-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
+        log_file = questionary.text(
+            "日志文件路径",
+            default=default_name,
+        ).ask()
+        if log_file is None:
+            return None
+        log_file = log_file.strip()
+
     return {
         "total_accounts": int(total_accounts),
         "workers": int(workers),
@@ -291,6 +310,7 @@ def _ask_registration_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
         "ak_file": prefill.get("ak_file", "ak.txt"),
         "rk_file": prefill.get("rk_file", "rk.txt"),
         "token_json_dir": prefill.get("token_json_dir", "codex_tokens"),
+        "log_file": log_file,
     }
 
 

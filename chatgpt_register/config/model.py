@@ -147,6 +147,7 @@ class RegConfig(BaseModel):
     ak_file: str = "ak.txt"
     rk_file: str = "rk.txt"
     token_json_dir: str = "codex_tokens"
+    log_file: str = ""
 
 
 # ---------------------------------------------------------------------------
