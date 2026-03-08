@@ -205,21 +205,11 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
         ).ask()
 
         domain = questionary.text(
-            "Domain",
+            "邮箱域名",
             default=provider_prefill.get("domain", ""),
         ).ask()
 
-        imap_host = questionary.text(
-            "IMAP Host",
-            default=provider_prefill.get("imap_host", ""),
-        ).ask()
-
-        imap_port = questionary.text(
-            "IMAP Port",
-            default=str(provider_prefill.get("imap_port", "993")),
-        ).ask()
-
-        if None in (api_url, api_key, domain, imap_host, imap_port):
+        if None in (api_url, api_key, domain):
             return None
 
         return {
@@ -228,8 +218,6 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
                 "api_url": api_url.strip(),
                 "api_key": api_key,
                 "domain": domain.strip(),
-                "imap_host": imap_host.strip(),
-                "imap_port": int(imap_port),
             },
         }
 

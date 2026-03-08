@@ -29,7 +29,7 @@ class MailcowConfig(BaseModel):
     api_url: str
     api_key: str
     domain: str
-    imap_host: str
+    imap_host: str = ""
     imap_port: int = 993
 
 
