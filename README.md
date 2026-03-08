@@ -15,13 +15,13 @@
 - 自动拉取邮箱 OTP（Mailcow 走 IMAP，临时邮箱走 API）。
 - 可选 OAuth 流程，输出 `access_token` / `refresh_token` / 单账号 JSON。
 - 可选上传到 CPA 或 Sub2API。
-- 基于 Textual 的交互式 TUI 向导与 TOML profile 持久化。
+- 交互式问答向导与 TOML profile 持久化。
 
 ## 能力边界
 
 - 这是一个脚本型工具，不保证服务端接口长期稳定。
 - 受目标站点策略、邮箱域信誉、网络环境影响，成功率存在波动。
-- 主 CLI 已完全切换到 `TUI + TOML profile`；`config.json`、环境变量覆盖和运行时补问都已废弃。
+- 主 CLI 已完全切换到 `交互式向导 + TOML profile`；`config.json`、环境变量覆盖和运行时补问都已废弃。
 
 ## 快速开始
 
@@ -42,12 +42,12 @@ uv sync
 uv run chatgpt-register
 ```
 
-首次进入后会打开 Textual 向导。按步骤填写：
+首次进入后会启动交互式向导。按步骤填写：
 
 - 邮箱平台与对应凭证
-- 注册数量、并发、代理与输出文件
+- 注册数量、并发、代理
 - 上传目标（CPA / Sub2API）
-- 摘要确认，并在最后保存为 TOML profile
+- 确认后保存为 TOML profile
 
 默认 profile 目录：`~/.chatgpt-register/profiles/`
 
@@ -74,13 +74,13 @@ uv run chatgpt-register --profile your-profile-name --profiles-dir /path/to/prof
 | 参数 | 说明 |
 | --- | --- |
 | `--profile` | 直接加载指定 TOML profile 并执行 |
-| `--profiles-dir` | 指定 profile 存储目录 |
+| `--profiles-dir` | 指定 profile 存储目录（默认 `~/.chatgpt-register/profiles/`） |
 | `--non-interactive` | 禁止交互；未传 `--profile` 时直接失败 |
 
 ### 启动路由
 
-- 传入 `--profile`：直接加载 profile 并执行，不进入 TUI。
-- 未传 `--profile` 且当前终端可交互：启动 TUI，可选择已有 profile、创建新 profile 或基于已有 profile 派生。
+- 传入 `--profile`：直接加载 profile 并执行，不进入向导。
+- 未传 `--profile` 且当前终端可交互：启动向导，可选择已有 profile、创建新 profile 或基于已有 profile 派生。
 - 非交互终端或显式 `--non-interactive`：必须提供 `--profile`。
 
 ## Profile 说明
@@ -98,10 +98,10 @@ uv run chatgpt-register --profile your-profile-name --profiles-dir /path/to/prof
 ### 邮箱提供者
 
 - `duckmail`：需要 bearer token
-- `mailcow`：需要 API URL / API Key / 域名 / IMAP 信息
+- `mailcow`：需要 API URL 和 API Key（域名、IMAP 信息自动推断）
 - `mailtm`：使用 API Base 即可
 
-这些信息都在 TUI 中录入，并最终保存在 TOML profile 中。
+这些信息都在向导中录入，并最终保存在 TOML profile 中。
 
 ### OAuth 输出
 
@@ -124,7 +124,7 @@ Sub2API 的 `api_base`、凭证和 `group_ids` 必须在保存 profile 时就已
 - 询问 Admin API Key / Bearer Token
 - 运行时拉取分组后让你再选一次
 
-如果 profile 中缺少 Sub2API 分组绑定，CLI 会快速失败，并提示你回到交互式 TUI 修复该 profile。
+如果 profile 中缺少 Sub2API 分组绑定，CLI 会快速失败，并提示你回到向导修复该 profile。
 
 ## 故障排查
 
@@ -148,7 +148,7 @@ uv run chatgpt-register --non-interactive --profile your-profile-name
 
 ### Sub2API 缺少分组绑定
 
-用交互式 TUI 打开该 profile，重新选择 Sub2API 的 openai 分组并保存，然后再执行 `--profile`。
+用向导打开该 profile，重新选择 Sub2API 的 openai 分组并保存，然后再执行 `--profile`。
 
 ### `unsupported_email`
 
@@ -162,12 +162,12 @@ uv run chatgpt-register --non-interactive --profile your-profile-name
 
 ### OAuth 失败但你只关心注册
 
-请在 TUI 中关闭“OAuth 必须成功”要求，保存回 profile 后再运行。
+请在 profile TOML 中设置 `oauth.required = false`，保存后再运行。
 
 ## 目录说明
 
 - `chatgpt_register/cli.py`：主 CLI 入口
-- `chatgpt_register/tui/`：Textual 向导
+- `chatgpt_register/wizard.py`：交互式配置向导
 - `chatgpt_register/config/profile.py`：TOML profile 管理
 - `codex/protocol_keygen.py`：独立工具（非主流程）
 

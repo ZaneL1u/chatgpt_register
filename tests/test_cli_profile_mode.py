@@ -89,4 +89,4 @@ def test_cli_fails_when_profile_has_incomplete_sub2api_binding(
     captured = capsys.readouterr()
     assert result == 2
     assert "Sub2API" in captured.out
-    assert "交互式 TUI" in captured.out
+    assert "向导" in captured.out

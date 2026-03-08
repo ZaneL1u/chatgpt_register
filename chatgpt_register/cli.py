@@ -17,10 +17,14 @@ _LEGACY_CONFIG_PATH = Path("config.json")
 def _build_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="chatgpt-register",
-        description="ChatGPT 批量自动注册工具（TUI + TOML Profile）",
+        description="ChatGPT 批量自动注册工具（交互式向导 + TOML Profile）",
     )
     parser.add_argument("--profile", help="直接加载已保存的 profile 并执行。")
-    parser.add_argument("--profiles-dir", type=Path, help="自定义 TOML profile 存储目录。")
+    parser.add_argument(
+        "--profiles-dir",
+        type=Path,
+        help="自定义 TOML profile 存储目录（默认 ~/.chatgpt-register/profiles/）。",
+    )
     parser.add_argument(
         "--non-interactive",
         action="store_true",
@@ -39,7 +43,7 @@ def _warn_legacy_config_if_present() -> None:
         return
     print(
         "[迁移提示] 检测到当前目录存在 `config.json`；CLI 已不再加载 JSON 配置。"
-        "请运行交互式 TUI 创建/修复 TOML profile，或使用 `--profile <name>`。"
+        "请运行交互式向导创建/修复 TOML profile，或使用 `--profile <name>`。"
     )
 
 
@@ -73,7 +77,7 @@ def _ensure_runtime_ready(config: RegisterConfig) -> RegisterConfig:
     if not ok:
         raise ValueError(
             "当前 profile 的 Sub2API 绑定不完整："
-            f"{error} 请回到交互式 TUI 打开并修复该 profile 后再重试。"
+            f"{error} 请回到向导打开并修复该 profile 后再重试。"
         )
 
     if group_ids == sub2api.group_ids:

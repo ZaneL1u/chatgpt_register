@@ -169,7 +169,7 @@ def validate_sub2api_group_binding(
         return False, [], "Sub2API 配置缺少凭证；请补齐 `admin_api_key` 或 `bearer_token`。"
 
     if not config.group_ids:
-        return False, [], "Sub2API 配置缺少 `group_ids`；请回到交互式 TUI 重新选择 openai 分组。"
+        return False, [], "Sub2API 配置缺少 `group_ids`；请回到向导重新选择 openai 分组。"
 
     normalized_group_ids: list[int] = []
     for group_id in config.group_ids:
@@ -186,14 +186,8 @@ def validate_sub2api_group_binding(
 
 def prepare_sub2api_group_binding(
     config: Sub2ApiConfig,
-    interactive: bool = True,
-    selected_group_id: int | None = None,
-    auto_select_first: bool = False,
-    proxy: str = "",
 ) -> tuple[bool, list[int]]:
-    """兼容旧调用名，但在运行阶段仅执行纯校验。"""
-    del interactive, selected_group_id, auto_select_first, proxy
-
+    """运行阶段 Sub2API 分组绑定校验。"""
     ok, group_ids, error = validate_sub2api_group_binding(config)
     if not ok:
         print(error or "Sub2API 分组绑定校验失败。")

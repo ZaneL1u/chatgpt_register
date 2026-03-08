@@ -8,7 +8,6 @@ import threading
 import time
 from collections import deque
 from contextlib import contextmanager
-from typing import Optional
 
 from chatgpt_register.core.utils import sanitize_status_text
 
@@ -210,7 +209,7 @@ class RuntimeDashboard:
 
 
 @contextmanager
-def route_print_to_dashboard(dashboard: Optional[RuntimeDashboard]):
+def route_print_to_dashboard(dashboard: RuntimeDashboard | None):
     """上下文管理器：将 builtins.print 重定向到 dashboard.log。"""
     if dashboard is None:
         yield

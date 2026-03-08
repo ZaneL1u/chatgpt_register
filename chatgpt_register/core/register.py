@@ -11,7 +11,6 @@ import threading
 import time
 import traceback
 import uuid
-from typing import Optional
 from urllib.parse import urlencode, urlparse
 
 from curl_cffi import requests as curl_requests
@@ -29,6 +28,7 @@ from chatgpt_register.core.tokens import save_codex_tokens
 from chatgpt_register.core.utils import (
     extract_code_from_url,
     extract_verification_code,
+    provider_display_name,
     random_birthdate,
     random_name,
     translate_step_to_cn,
@@ -45,7 +45,7 @@ class ChatGPTRegister:
         config: RegisterConfig,
         proxy: str | None = None,
         tag: str = "",
-        worker_id: Optional[int] = None,
+        worker_id: int | None = None,
         dashboard=None,
         print_lock: threading.Lock | None = None,
         file_lock: threading.Lock | None = None,
@@ -86,12 +86,7 @@ class ChatGPTRegister:
         self.email_adapter = build_email_adapter(self, config)
 
     def _provider_label(self) -> str:
-        labels = {
-            "duckmail": "DuckMail",
-            "mailcow": "Mailcow",
-            "mailtm": "Mail.tm",
-        }
-        return labels.get(self.config.email.provider, self.config.email.provider or "Unknown")
+        return provider_display_name(self.config.email.provider)
 
     def _log(self, step, method, url, status, body=None):
         if self.dashboard is not None and self.worker_id is not None:

@@ -22,6 +22,16 @@ def plain_print(*args, **kwargs):
     builtins.print(*args, **kwargs)
 
 
+def provider_display_name(provider: str) -> str:
+    """将 provider key 转换为显示名称。"""
+    mapping = {
+        "duckmail": "DuckMail",
+        "mailcow": "Mailcow",
+        "mailtm": "Mail.tm",
+    }
+    return mapping.get((provider or "").lower(), provider or "Unknown")
+
+
 def translate_step_to_cn(step: str) -> str:
     mapping = {
         "Visit homepage": "访问首页",

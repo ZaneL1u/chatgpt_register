@@ -9,6 +9,7 @@ from rich.console import Console
 
 from chatgpt_register.config.model import RegisterConfig
 from chatgpt_register.config.profile import ProfileManager
+from chatgpt_register.core.utils import provider_display_name
 
 console = Console()
 
@@ -53,20 +54,21 @@ def _select_and_run(
 ) -> RegisterConfig | None:
     """选择并运行已有 profile。"""
     choices = [
-        f"{p.name} ({p.email_provider}, {','.join(p.upload_targets) or 'none'}, {p.total_accounts}账号)"
+        questionary.Choice(
+            title=f"{p.name} ({p.email_provider}, {','.join(p.upload_targets) or 'none'}, {p.total_accounts}账号)",
+            value=p.name,
+        )
         for p in profiles
     ]
 
-    selected = questionary.select(
+    profile_name = questionary.select(
         "选择 Profile",
         choices=choices,
     ).ask()
 
-    if selected is None:
+    if profile_name is None:
         return None
 
-    # 提取 profile 名称
-    profile_name = selected.split(" (")[0]
     config = profile_manager.load(profile_name)
     console.print(f"\n[green]✓[/green] 已加载 profile: {profile_name}\n")
     return config
@@ -165,7 +167,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
     provider = questionary.select(
         "邮箱平台",
         choices=["DuckMail", "Mailcow", "Mail.tm"],
-        default=_provider_display_name(prefill.get("provider", "mailtm")),
+        default=provider_display_name(prefill.get("provider", "mailtm")),
     ).ask()
 
     if provider is None:
@@ -392,30 +394,24 @@ def _load_sub2api_groups(
             return []
 
         # 让用户选择分组
-        choices = [f"{g['name']} (ID: {g['id']})" for g in groups]
-        selected = questionary.select(
+        choices = [
+            questionary.Choice(
+                title=f"{g['name']} (ID: {g['id']})",
+                value=g["id"],
+            )
+            for g in groups
+        ]
+        group_id = questionary.select(
             "选择分组",
             choices=choices,
         ).ask()
 
-        if selected is None:
+        if group_id is None:
             return []
 
-        # 提取 group_id
-        group_id = int(selected.split("ID: ")[1].rstrip(")"))
-        console.print(f"[green]✓[/green] 已选择分组: {selected}\n")
+        console.print(f"[green]✓[/green] 已选择分组 ID: {group_id}\n")
         return [group_id]
 
     except Exception as e:
         console.print(f"[red]加载分组失败: {e}[/red]\n")
         return []
-
-
-def _provider_display_name(provider: str) -> str:
-    """转换 provider 为显示名称。"""
-    mapping = {
-        "duckmail": "DuckMail",
-        "mailcow": "Mailcow",
-        "mailtm": "Mail.tm",
-    }
-    return mapping.get(provider.lower(), "Mail.tm")

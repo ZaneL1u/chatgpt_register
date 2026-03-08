@@ -11,20 +11,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from chatgpt_register.adapters.mailcow import MailcowAdapter
 from chatgpt_register.config.model import RegisterConfig
 from chatgpt_register.core.register import ChatGPTRegister
-from chatgpt_register.core.utils import generate_password, random_birthdate, random_name
+from chatgpt_register.core.utils import generate_password, provider_display_name, random_birthdate, random_name
 from chatgpt_register.dashboard import RICH_AVAILABLE, RuntimeDashboard, route_print_to_dashboard
 
 _print_lock = threading.Lock()
 _file_lock = threading.Lock()
-
-
-def _provider_label(provider: str) -> str:
-    labels = {
-        "duckmail": "DuckMail",
-        "mailcow": "Mailcow",
-        "mailtm": "Mail.tm",
-    }
-    return labels.get(provider, provider or "Unknown")
 
 
 def _email_provider_endpoint_hint(config: RegisterConfig) -> str:
@@ -56,7 +47,7 @@ def _register_one(idx, total, config: RegisterConfig, output_file: str, print_lo
             file_lock=file_lock,
         )
 
-        provider_name = _provider_label(config.email.provider)
+        provider_name = provider_display_name(config.email.provider)
         reg._print(f"[{provider_name}] 创建临时邮箱...")
         email, email_pwd, mail_token = reg.create_temp_email()
         tag = email.split("@")[0]
@@ -134,7 +125,7 @@ def run_batch(config: RegisterConfig):
     output_file = config.registration.output_file
     max_workers = config.registration.workers
     actual_workers = min(max_workers, total_accounts)
-    provider_name = _provider_label(config.email.provider)
+    provider_name = provider_display_name(config.email.provider)
 
     dashboard = None
     if RICH_AVAILABLE and sys.stdin.isatty() and sys.stdout.isatty():
