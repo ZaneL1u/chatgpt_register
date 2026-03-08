@@ -43,7 +43,7 @@ def _warn_legacy_config_if_present() -> None:
     )
 
 
-def _should_launch_tui(args: argparse.Namespace) -> bool:
+def _should_launch_wizard(args: argparse.Namespace) -> bool:
     return (
         not args.non_interactive
         and sys.stdin.isatty()
@@ -51,11 +51,10 @@ def _should_launch_tui(args: argparse.Namespace) -> bool:
     )
 
 
-def _launch_tui(profile_manager: ProfileManager) -> RegisterConfig | None:
-    from chatgpt_register.tui import WizardApp
+def _launch_wizard(profile_manager: ProfileManager) -> RegisterConfig | None:
+    from chatgpt_register.wizard import run_wizard
 
-    app = WizardApp(profile_manager=profile_manager)
-    return app.run()
+    return run_wizard(profile_manager)
 
 
 def _load_profile(profile_manager: ProfileManager, profile_name: str) -> RegisterConfig:
@@ -104,10 +103,10 @@ def main(argv: list[str] | None = None) -> int:
             run_batch(config)
             return 0
 
-        if _should_launch_tui(args):
-            config = _launch_tui(profile_manager)
+        if _should_launch_wizard(args):
+            config = _launch_wizard(profile_manager)
             if config is None:
-                print("[Info] 已取消 TUI 配置，未执行注册。")
+                print("[Info] 已取消配置，未执行注册。")
                 return 0
             config = _ensure_runtime_ready(config)
             run_batch(config)
