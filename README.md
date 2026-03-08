@@ -1,190 +1,216 @@
-# chatgpt-register
+# 🤖 ChatGPT Register
 
-基于 Python 的批量注册工具，支持多邮箱提供者（`duckmail` / `mailcow` / `mailtm`），可选执行 OAuth，并将 token 落盘或上传到外部平台。
+批量注册 ChatGPT 账号的命令行工具。支持多种邮箱平台，自动拉取验证码，可选 OAuth 获取 token 并上传到外部平台。
 
-## 声明
+> **声明**：本项目仅用于自动化测试、流程验证与技术研究。请自行确保使用行为符合目标平台条款和当地法规。
 
-- 本项目仅用于自动化测试、流程验证与研究场景。
-- 请确保你的使用行为符合目标平台条款、当地法律与团队合规要求。
-- 仓库不提供任何规避风控或滥用服务的支持。
+## 它能做什么
 
-## 功能概览
-
-- 并发执行注册任务（线程池）。
-- 邮箱适配器架构，支持 DuckMail / Mailcow / Mail.tm。
-- 自动拉取邮箱 OTP（Mailcow 走 IMAP，临时邮箱走 API）。
-- 可选 OAuth 流程，输出 `access_token` / `refresh_token` / 单账号 JSON。
-- 可选上传到 CPA 或 Sub2API。
-- 交互式问答向导与 TOML profile 持久化。
-
-## 能力边界
-
-- 这是一个脚本型工具，不保证服务端接口长期稳定。
-- 受目标站点策略、邮箱域信誉、网络环境影响，成功率存在波动。
-- 主 CLI 已完全切换到 `交互式向导 + TOML profile`；`config.json`、环境变量覆盖和运行时补问都已废弃。
+- **批量注册** — 线程池并发，可配置并发数和代理
+- **多邮箱平台** — 支持 DuckMail、Mailcow（自建）、Mail.tm
+- **自动验证码** — Mailcow 走 IMAP，DuckMail / Mail.tm 走 API
+- **OAuth Token** — 注册后自动走完 OAuth 流程，拿到 `access_token` + `refresh_token`
+- **Token 上传** — 支持上传到 CPA 平台或 Sub2API
+- **交互式向导** — 首次运行引导你填写配置，保存为 TOML profile，下次直接用
+- **实时面板** — 基于 rich 的运行面板，显示进度、任务状态和日志
 
 ## 快速开始
 
-### 1) 环境要求
-
-- Python `>= 3.10`
-- `uv`（推荐）
-
-### 2) 安装依赖
+**环境**：Python >= 3.10，推荐用 [uv](https://github.com/astral-sh/uv)
 
 ```bash
+# 安装依赖
 uv sync
-```
 
-### 3) 首次创建 profile
-
-```bash
+# 首次运行，进入交互式向导
 uv run chatgpt-register
 ```
 
-首次进入后会启动交互式向导。按步骤填写：
+向导会引导你依次配置：
 
-- 邮箱平台与对应凭证
-- 注册数量、并发、代理
-- 上传目标（CPA / Sub2API）
-- 确认后保存为 TOML profile
+```text
+? 选择操作 › 新建配置
+? 邮箱平台 › Mailcow
+? Mailcow API URL › mail.example.com
+? API Key › ****
+? 注册账号数量 › 10
+? 并发数 › 3
+? 代理地址 (留空跳过) ›
+? 上传目标 › Sub2API
+? ...
+? 保存为 profile? › yes
+? Profile 名称 › my-config
 
-默认 profile 目录：`~/.chatgpt-register/profiles/`
-
-### 4) 运行已保存 profile
-
-```bash
-uv run chatgpt-register --profile your-profile-name
+✔ 配置已保存
+开始注册...
 ```
 
-自动化/CI 场景建议显式加上：
+配置保存后，下次可以直接用：
 
 ```bash
-uv run chatgpt-register --non-interactive --profile your-profile-name
+uv run chatgpt-register --profile my-config
 ```
 
-如果 profile 不在默认目录，可指定：
-
-```bash
-uv run chatgpt-register --profile your-profile-name --profiles-dir /path/to/profiles
-```
+Profile 默认存储在 `~/.chatgpt-register/profiles/`。
 
 ## CLI 参数
 
+```bash
+chatgpt-register [--profile NAME] [--profiles-dir PATH] [--non-interactive]
+```
+
 | 参数 | 说明 |
 | --- | --- |
-| `--profile` | 直接加载指定 TOML profile 并执行 |
-| `--profiles-dir` | 指定 profile 存储目录（默认 `~/.chatgpt-register/profiles/`） |
-| `--non-interactive` | 禁止交互；未传 `--profile` 时直接失败 |
+| `--profile` | 加载指定 profile 直接执行，跳过向导 |
+| `--profiles-dir` | 自定义 profile 目录（默认 `~/.chatgpt-register/profiles/`） |
+| `--non-interactive` | 非交互模式，必须配合 `--profile` 使用 |
 
-### 启动路由
+**启动逻辑**：有 `--profile` 就直接跑；没有且终端可交互就启动向导；非交互环境下没给 `--profile` 会报错。
 
-- 传入 `--profile`：直接加载 profile 并执行，不进入向导。
-- 未传 `--profile` 且当前终端可交互：启动向导，可选择已有 profile、创建新 profile 或基于已有 profile 派生。
-- 非交互终端或显式 `--non-interactive`：必须提供 `--profile`。
+## 邮箱平台
 
-## Profile 说明
+| 平台 | 需要配置 | 验证码获取方式 |
+| --- | --- | --- |
+| **DuckMail** | API Base + Bearer Token | API 轮询 |
+| **Mailcow** | API URL + API Key | IMAP（域名和 IMAP 地址自动推断） |
+| **Mail.tm** | API Base | API 轮询 |
 
-每个 profile 都是一个 TOML 文件，运行期不再接受额外业务参数覆盖。也就是说：
+Mailcow 适合有自建邮箱服务的场景，注册完成后会自动清理临时邮箱。
 
-- 不再从 `config.json` 读取配置
-- 不再读取环境变量来覆盖 profile
-- 不再通过 `input()` 补齐代理、数量、并发或上传凭证
+## 上传目标
 
-如果当前目录仍有 `config.json`，CLI 只会输出迁移提示，不会自动加载。
+注册成功后，token 可以上传到：
 
-## 邮箱与上传配置
+- **CPA** — 通过 multipart POST 上传 token JSON 文件
+- **Sub2API** — 通过 API 上传账号，支持分组绑定
 
-### 邮箱提供者
+两者可以同时启用。Sub2API 的分组绑定（`group_ids`）在向导中会自动拉取可选分组让你选择。
 
-- `duckmail`：需要 bearer token
-- `mailcow`：需要 API URL 和 API Key（域名、IMAP 信息自动推断）
-- `mailtm`：使用 API Base 即可
+## 输出文件
 
-这些信息都在向导中录入，并最终保存在 TOML profile 中。
+| 文件 | 内容 |
+| --- | --- |
+| `registered_accounts.txt` | 注册结果：`邮箱----密码----邮箱密码----oauth状态` |
+| `ak.txt` | access_token（每行一个） |
+| `rk.txt` | refresh_token（每行一个） |
+| `codex_tokens/<email>.json` | 单账号完整 token 数据 |
+| `logs/register-*.log` | 运行日志（向导中可选开启） |
 
-### OAuth 输出
+文件名和路径都可以在 profile 中自定义。
 
-运行后会按 profile 中的注册配置输出：
+## Profile 配置
 
-- `registered_accounts.txt`
-- `ak.txt`
-- `rk.txt`
-- `codex_tokens/<email>.json`
+每个 profile 是一个 TOML 文件，包含完整的运行配置。示例：
 
-文件名和目录同样由 profile 的 `registration` 配置决定。
+```toml
+[email]
+provider = "mailcow"
 
-### Sub2API
+[email.mailcow]
+api_url = "mail.example.com"
+api_key = "your-api-key"
 
-Sub2API 的 `api_base`、凭证和 `group_ids` 必须在保存 profile 时就已经完整固化。
+[registration]
+total_accounts = 10
+workers = 3
+proxy = ""
+output_file = "registered_accounts.txt"
+log_file = ""
 
-运行阶段只会做校验，不会再：
+[oauth]
+enabled = true
+required = true
 
-- 询问 Sub2API 地址
-- 询问 Admin API Key / Bearer Token
-- 运行时拉取分组后让你再选一次
+[upload]
+targets = ["sub2api"]
 
-如果 profile 中缺少 Sub2API 分组绑定，CLI 会快速失败，并提示你回到向导修复该 profile。
+[upload.sub2api]
+api_base = "sub2api.example.com"
+admin_api_key = "your-admin-key"
+group_ids = [1]
+```
 
-## 故障排查
+**设计原则**：运行时不再接受环境变量覆盖或交互式补问。所有参数在 profile 中固化，确保每次运行结果可复现。
 
-### 非交互模式报错：必须提供 `--profile`
+## 项目结构
 
-这是预期行为。请先运行：
+```text
+chatgpt_register/
+├── cli.py              # CLI 入口
+├── wizard.py           # 交互式向导（questionary）
+├── dashboard.py        # 实时面板（rich）
+├── config/
+│   ├── model.py        # Pydantic 配置模型
+│   └── profile.py      # Profile 持久化管理
+├── adapters/           # 邮箱适配器
+│   ├── base.py         # 基类
+│   ├── duckmail.py
+│   ├── mailcow.py
+│   └── mailtm.py
+├── upload/             # Token 上传
+│   ├── cpa.py
+│   └── sub2api.py
+└── core/
+    ├── batch.py        # 并发编排
+    ├── register.py     # 注册+OAuth 核心流程
+    ├── sentinel.py     # Sentinel PoW 求解
+    ├── http.py         # HTTP 工具
+    └── tokens.py       # Token 保存
+```
+
+## 常见问题
+
+**注册成功但 OAuth 失败？**
+
+如果你只需要注册不需要 token，在 profile 里设置：
+
+```toml
+[oauth]
+enabled = false
+```
+
+或者允许 OAuth 失败但不阻塞注册：
+
+```toml
+[oauth]
+enabled = true
+required = false
+```
+
+**收不到验证码？**
+
+- Mailcow：检查 IMAP 连通性（默认端口 993/SSL），先单线程跑 1 个账号排查
+- DuckMail / Mail.tm：确认 API Base 和凭证正确
+
+**报错 `unsupported_email`？**
+
+OpenAI 拒绝了当前邮箱域名，换一个邮箱平台试试。
+
+**非交互模式报错？**
+
+先跑一次 `uv run chatgpt-register` 创建 profile，然后用 `--profile` 参数指定。
+
+**还有 `config.json`？**
+
+旧版配置已废弃，CLI 不会读取它。请改用向导创建 TOML profile。
+
+## 开发
 
 ```bash
+# 安装依赖（含开发依赖）
+uv sync
+
+# 跑测试
+uv run pytest tests/ -q
+
+# 直接运行
 uv run chatgpt-register
 ```
 
-完成一次交互式创建并保存 profile，随后再使用：
-
-```bash
-uv run chatgpt-register --non-interactive --profile your-profile-name
-```
-
-### 当前目录还有 `config.json`
-
-这是旧路径残留。CLI 只会提示迁移，不会再读取它。请改用 TOML profile。
-
-### Sub2API 缺少分组绑定
-
-用向导打开该 profile，重新选择 Sub2API 的 openai 分组并保存，然后再执行 `--profile`。
-
-### `unsupported_email`
-
-目标站点拒绝了当前邮箱域名。建议更换邮箱提供者或先单线程验证。
-
-### 收不到 OTP（尤其 Mailcow）
-
-- 检查 IMAP 连通性（host/port/SSL）。
-- 确认邮箱创建成功且能登录。
-- 降低并发并先跑 `1` 个账号验证链路。
-
-### OAuth 失败但你只关心注册
-
-请在 profile TOML 中设置 `oauth.required = false`，保存后再运行。
-
-## 目录说明
-
-- `chatgpt_register/cli.py`：主 CLI 入口
-- `chatgpt_register/wizard.py`：交互式配置向导
-- `chatgpt_register/config/profile.py`：TOML profile 管理
-- `codex/protocol_keygen.py`：独立工具（非主流程）
-
 ## 贡献
 
-欢迎提交 PR。建议包含：
+欢迎 PR。提交时请说明变更动机，附上验证步骤。
 
-- 变更动机与影响范围
-- 配置/兼容性说明
-- 最小复现与验证步骤
+## 安全提醒
 
-## 安全
-
-不要将以下内容提交到仓库：
-
-- 任意 API Key / Bearer Token
-- 可复用的代理凭据
-- 生产环境账号数据
-
-如发现安全问题，请通过私下渠道联系维护者。
+不要把 API Key、Bearer Token、代理凭据或账号数据提交到仓库。Profile 文件存储在用户主目录下（`~/.chatgpt-register/`），不在项目目录中。
