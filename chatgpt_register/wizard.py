@@ -14,6 +14,14 @@ from chatgpt_register.core.utils import provider_display_name
 console = Console()
 
 
+def _ensure_scheme(url: str) -> str:
+    """确保 URL 包含 scheme，缺失时自动补 https://。"""
+    url = url.strip()
+    if url and "://" not in url:
+        return f"https://{url}"
+    return url
+
+
 def run_wizard(profile_manager: ProfileManager) -> RegisterConfig | None:
     """运行交互式配置向导。"""
     console.print("\n[bold cyan]ChatGPT 批量注册工具配置向导[/bold cyan]\n")
@@ -192,7 +200,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
 
         return {
             "provider": "duckmail",
-            "duckmail": {"api_base": api_base.strip(), "bearer": bearer},
+            "duckmail": {"api_base": _ensure_scheme(api_base), "bearer": bearer},
         }
 
     elif provider == "Mailcow":
@@ -209,7 +217,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
         if None in (api_url, api_key):
             return None
 
-        api_url = api_url.strip()
+        api_url = _ensure_scheme(api_url)
 
         # 自动推断 domain 和 imap_host
         from urllib.parse import urlparse
@@ -249,7 +257,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
 
         return {
             "provider": "mailtm",
-            "mailtm": {"api_base": api_base.strip()},
+            "mailtm": {"api_base": _ensure_scheme(api_base)},
         }
 
 
@@ -325,7 +333,7 @@ def _ask_upload_config(prefill: dict[str, Any], proxy: str) -> dict[str, Any] | 
             return None
 
         cpa_config = {
-            "api_url": cpa_api_url.strip(),
+            "api_url": _ensure_scheme(cpa_api_url),
             "api_token": cpa_api_token,
         }
 
@@ -352,6 +360,8 @@ def _ask_upload_config(prefill: dict[str, Any], proxy: str) -> dict[str, Any] | 
         if None in (api_base, admin_api_key, bearer_token):
             return None
 
+        api_base = _ensure_scheme(api_base)
+
         # 加载分组
         group_ids = sub2api_prefill.get("group_ids", [])
         if not group_ids and api_base and (admin_api_key or bearer_token):
@@ -367,7 +377,7 @@ def _ask_upload_config(prefill: dict[str, Any], proxy: str) -> dict[str, Any] | 
             console.print("[yellow]警告: 未选择 Sub2API 分组，运行时可能失败[/yellow]")
 
         sub2api_config = {
-            "api_base": api_base.strip(),
+            "api_base": api_base,
             "admin_api_key": admin_api_key,
             "bearer_token": bearer_token,
             "group_ids": group_ids,

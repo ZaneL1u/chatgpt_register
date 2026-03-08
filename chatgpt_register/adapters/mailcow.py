@@ -157,14 +157,21 @@ class MailcowAdapter(EmailAdapter):
         super().__init__(register)
         self.config = email_config
         updates = {}
+
+        api_url = self.config.api_url
+        # 补全缺失的 scheme，确保 urlparse 能正确解析 hostname
+        if api_url and "://" not in api_url:
+            api_url = f"https://{api_url}"
+            updates["api_url"] = api_url
+
         # 自动推断 IMAP host
-        if self.config.api_url and not self.config.imap_host:
+        if api_url and not self.config.imap_host:
             from urllib.parse import urlparse
-            updates["imap_host"] = urlparse(self.config.api_url).hostname or ""
+            updates["imap_host"] = urlparse(api_url).hostname or ""
         # 自动推断 domain
-        if self.config.api_url and not self.config.domain:
+        if api_url and not self.config.domain:
             from urllib.parse import urlparse
-            host = urlparse(self.config.api_url).hostname or ""
+            host = urlparse(api_url).hostname or ""
             # mail.example.com → example.com
             parts = host.split(".")
             if len(parts) > 2:
