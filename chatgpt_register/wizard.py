@@ -209,12 +209,33 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
         if None in (api_url, api_key):
             return None
 
+        api_url = api_url.strip()
+
+        # 自动推断 domain 和 imap_host
+        from urllib.parse import urlparse
+        host = urlparse(api_url).hostname or ""
+        parts = host.split(".")
+        domain = ".".join(parts[-2:]) if len(parts) > 2 else host
+        imap_host = host
+
+        if not domain:
+            console.print("[yellow]警告: 无法从 API URL 推断邮箱域名[/yellow]")
+            domain = questionary.text("邮箱域名 (如 example.com)").ask()
+            if domain is None:
+                return None
+            domain = domain.strip()
+
+        mailcow_config: dict[str, Any] = {
+            "api_url": api_url,
+            "api_key": api_key,
+            "domain": domain,
+        }
+        if imap_host:
+            mailcow_config["imap_host"] = imap_host
+
         return {
             "provider": "mailcow",
-            "mailcow": {
-                "api_url": api_url.strip(),
-                "api_key": api_key,
-            },
+            "mailcow": mailcow_config,
         }
 
     else:  # Mail.tm
