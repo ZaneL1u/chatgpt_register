@@ -49,11 +49,11 @@ def run_wizard(profile_manager: ProfileManager) -> RegisterConfig | None:
 
 def _select_and_run(
     profile_manager: ProfileManager,
-    profiles: list[dict[str, Any]],
+    profiles: list,
 ) -> RegisterConfig | None:
     """选择并运行已有 profile。"""
     choices = [
-        f"{p['name']} ({p['email_provider']}, {p['upload_targets']}, {p['total_accounts']}账号)"
+        f"{p.name} ({p.email_provider}, {','.join(p.upload_targets) or 'none'}, {p.total_accounts}账号)"
         for p in profiles
     ]
 
@@ -74,10 +74,10 @@ def _select_and_run(
 
 def _derive_profile(
     profile_manager: ProfileManager,
-    profiles: list[dict[str, Any]],
+    profiles: list,
 ) -> RegisterConfig | None:
     """从已有 profile 派生新配置。"""
-    choices = [p["name"] for p in profiles]
+    choices = [p.name for p in profiles]
 
     source_name = questionary.select(
         "选择要派生的 Profile",
