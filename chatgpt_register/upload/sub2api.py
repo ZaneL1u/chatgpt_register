@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from chatgpt_register.config.model import Sub2ApiConfig
@@ -155,121 +155,47 @@ def upload_token_to_sub2api(
                 print(f"  [Sub2API] 上传异常: {e}")
 
 
+def validate_sub2api_group_binding(
+    config: Sub2ApiConfig,
+) -> tuple[bool, list[int], str | None]:
+    """校验运行阶段的 Sub2API 绑定是否完整。"""
+    api_base = config.api_base.strip().rstrip("/")
+    if not api_base:
+        return False, [], "Sub2API 配置缺少 `api_base`。"
+
+    admin_key = config.admin_api_key.strip()
+    bearer = config.bearer_token.strip()
+    if not admin_key and not bearer:
+        return False, [], "Sub2API 配置缺少凭证；请补齐 `admin_api_key` 或 `bearer_token`。"
+
+    if not config.group_ids:
+        return False, [], "Sub2API 配置缺少 `group_ids`；请回到交互式 TUI 重新选择 openai 分组。"
+
+    normalized_group_ids: list[int] = []
+    for group_id in config.group_ids:
+        try:
+            normalized = int(group_id)
+        except (TypeError, ValueError):
+            return False, [], "Sub2API `group_ids` 必须全部为整数。"
+        if normalized <= 0:
+            return False, [], "Sub2API `group_ids` 必须全部大于 0。"
+        normalized_group_ids.append(normalized)
+
+    return True, normalized_group_ids, None
+
+
 def prepare_sub2api_group_binding(
     config: Sub2ApiConfig,
     interactive: bool = True,
-    selected_group_id: Optional[int] = None,
+    selected_group_id: int | None = None,
     auto_select_first: bool = False,
     proxy: str = "",
 ) -> tuple[bool, list[int]]:
-    """准备 Sub2API 分组绑定，返回 (成功, group_ids)。
+    """兼容旧调用名，但在运行阶段仅执行纯校验。"""
+    del interactive, selected_group_id, auto_select_first, proxy
 
-    与旧版不同，此函数不修改全局变量，而是返回选中的 group_ids。
-    """
-    api_base = config.api_base
-    if not api_base:
-        if interactive:
-            api_base = input("Sub2API 地址 (例如 https://sub2api.example.com): ").strip().rstrip("/")
-        else:
-            print("未设置 sub2api_api_base，无法继续 Sub2API 上传")
-            return False, []
-    if not api_base:
-        print("未设置 Sub2API 地址，无法继续 Sub2API 上传")
+    ok, group_ids, error = validate_sub2api_group_binding(config)
+    if not ok:
+        print(error or "Sub2API 分组绑定校验失败。")
         return False, []
-
-    admin_key = config.admin_api_key
-    bearer = config.bearer_token
-    if not admin_key and not bearer:
-        if interactive:
-            key = input("Sub2API Admin API Key (推荐，留空则输入 Bearer Token): ").strip()
-            if key:
-                admin_key = key
-            else:
-                bearer = input("Sub2API Bearer Token: ").strip()
-        else:
-            print("未设置 sub2api_admin_api_key 或 sub2api_bearer_token，无法继续 Sub2API 上传")
-            return False, []
-
-    if not admin_key and not bearer:
-        print("未设置 Sub2API 凭证，无法继续 Sub2API 上传")
-        return False, []
-
-    # 创建临时 config 用于 API 调用（可能含交互输入的值）
-    temp_config = config.model_copy(update={
-        "api_base": api_base,
-        "admin_api_key": admin_key,
-        "bearer_token": bearer,
-    })
-
-    print("[Sub2API] 正在获取 openai 分组...")
-    try:
-        groups = fetch_sub2api_openai_groups(temp_config, proxy=proxy)
-    except Exception as e:
-        print(f"{e}")
-        return False, []
-
-    if not groups:
-        print("Sub2API 中未找到 openai 平台分组。请先在管理后台新建分组后重试。")
-        return False, []
-
-    selected = None
-    if selected_group_id is None and config.group_ids:
-        try:
-            selected_group_id = int(config.group_ids[0])
-        except Exception:
-            selected_group_id = None
-
-    if selected_group_id is not None:
-        for group in groups:
-            if group["id"] == selected_group_id:
-                selected = group
-                break
-        if not selected:
-            print(f"指定的 Sub2API 分组不存在或非 openai 平台: id={selected_group_id}")
-            return False, []
-
-    if selected is None and not interactive:
-        if auto_select_first:
-            selected = groups[0]
-        else:
-            print("非交互模式下请提供 --sub2api-group-id，或使用 --sub2api-auto-select-first-group")
-            return False, []
-
-    if selected is None:
-        # 交互选择
-        import sys
-        if not sys.stdin.isatty() or not sys.stdout.isatty():
-            print("当前环境不是可交互终端")
-            return False, []
-
-        try:
-            import questionary
-        except Exception:
-            print("缺少依赖 questionary")
-            return False, []
-
-        tui_choices = []
-        for group in groups:
-            status = group.get("status") or "-"
-            title = f"{group['name']} (ID={group['id']}, status={status})"
-            tui_choices.append(questionary.Choice(title=title, value=group["id"]))
-
-        selected_group_id = questionary.select(
-            "选择 Sub2API openai 分组（上下选择，Enter 确认）",
-            choices=tui_choices,
-            default=groups[0]["id"],
-            qmark=">",
-            pointer="->",
-        ).ask()
-        if selected_group_id is None:
-            raise KeyboardInterrupt
-        for group in groups:
-            if group["id"] == selected_group_id:
-                selected = group
-                break
-
-    if selected is None:
-        raise RuntimeError("分组选择失败。")
-
-    print(f"[Sub2API] 已选择分组: {selected['name']} (ID={selected['id']})")
-    return True, [selected["id"]]
+    return True, group_ids

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 from chatgpt_register import cli
@@ -70,3 +71,22 @@ def test_cli_warns_about_legacy_config_without_loading(
     assert "config.json" in captured.out
     assert "不再加载 JSON 配置" in captured.out
     assert launched["config"].email.provider == "duckmail"
+
+
+def test_cli_fails_when_profile_has_incomplete_sub2api_binding(
+    monkeypatch,
+    tmp_profiles_dir: Path,
+    sample_mailtm_dict: dict,
+    capsys,
+) -> None:
+    payload = deepcopy(sample_mailtm_dict)
+    payload["upload"]["sub2api"]["group_ids"] = []
+    _save_profile(tmp_profiles_dir, "broken-sub2api", payload)
+    monkeypatch.setattr(cli, "run_batch", lambda config: (_ for _ in ()).throw(AssertionError("不应执行 run_batch")))
+
+    result = cli.main(["--profile", "broken-sub2api", "--profiles-dir", str(tmp_profiles_dir)])
+
+    captured = capsys.readouterr()
+    assert result == 2
+    assert "Sub2API" in captured.out
+    assert "交互式 TUI" in captured.out

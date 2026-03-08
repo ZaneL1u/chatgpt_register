@@ -9,6 +9,7 @@ from pathlib import Path
 from chatgpt_register.config.model import RegisterConfig
 from chatgpt_register.config.profile import ProfileManager
 from chatgpt_register.core.batch import run_batch
+from chatgpt_register.upload.sub2api import validate_sub2api_group_binding
 
 _LEGACY_CONFIG_PATH = Path("config.json")
 
@@ -61,6 +62,35 @@ def _load_profile(profile_manager: ProfileManager, profile_name: str) -> Registe
     return profile_manager.load(profile_name)
 
 
+def _ensure_runtime_ready(config: RegisterConfig) -> RegisterConfig:
+    if "sub2api" not in config.upload.targets:
+        return config
+
+    sub2api = config.upload.sub2api
+    if sub2api is None:
+        raise ValueError("当前 profile 缺少 `[upload.sub2api]` 配置节。")
+
+    ok, group_ids, error = validate_sub2api_group_binding(sub2api)
+    if not ok:
+        raise ValueError(
+            "当前 profile 的 Sub2API 绑定不完整："
+            f"{error} 请回到交互式 TUI 打开并修复该 profile 后再重试。"
+        )
+
+    if group_ids == sub2api.group_ids:
+        return config
+
+    return config.model_copy(
+        update={
+            "upload": config.upload.model_copy(
+                update={
+                    "sub2api": sub2api.model_copy(update={"group_ids": group_ids})
+                }
+            )
+        }
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
         parser = _build_cli_parser()
@@ -70,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         _warn_legacy_config_if_present()
 
         if args.profile:
-            config = _load_profile(profile_manager, args.profile)
+            config = _ensure_runtime_ready(_load_profile(profile_manager, args.profile))
             run_batch(config)
             return 0
 
@@ -79,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
             if config is None:
                 print("[Info] 已取消 TUI 配置，未执行注册。")
                 return 0
+            config = _ensure_runtime_ready(config)
             run_batch(config)
             return 0
 
