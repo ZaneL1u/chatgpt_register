@@ -55,3 +55,11 @@ config_file = "agents/gsd-roadmapper.toml"
 description = "Verifies phase goal achievement through goal-backward analysis. Checks codebase delivers what phase promised, not just that tasks completed. Creates VERIFICATION.md report."
 config_file = "agents/gsd-verifier.toml"
 
+[preferences]
+response_language = "zh-CN"
+strict_response_language = true
+language_policy_files = ["AGENTS.md", "CLAUDE.md", ".planning/config.json"]
+
+[[preferences.language_exceptions]]
+kind = "verbatim_technical_surface"
+examples = ["code", "commands", "paths", "env vars", "API fields", "logs", "third-party identifiers"]
