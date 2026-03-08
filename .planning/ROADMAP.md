@@ -16,6 +16,7 @@
 - [x] **Phase 2: 模块拆分** - 单文件拆为多模块包结构，run_batch() 接受配置参数 (completed 2026-03-07)
 - [x] **Phase 3: TUI 配置向导** - Textual 多屏分步向导，覆盖完整配置流程 (completed 2026-03-08)
 - [x] **Phase 4: CLI 集成与 Profile 管理** - 混合启动模式、非交互模式、移除旧配置方式 (completed 2026-03-08)
+- [ ] **Phase 5: Phase 4 验收闭环** - 创建 04-VERIFICATION.md，完成里程碑审计缺口关闭
 
 ## Phase Details
 
@@ -80,10 +81,28 @@ Plans:
 - [x] 04-02-PLAN.md — TUI Profile 启动页 + 新建/派生保存闭环（Wave 2）
 - [x] 04-03-PLAN.md — `--profile` 直载路径 + 遗留配置清理（Wave 3）
 
+### Phase 5: Phase 4 验收闭环
+
+**Goal**: 完成 Phase 4 正式验收，关闭 v1.0 里程碑审计缺口
+**Depends on**: Phase 4
+**Requirements**: PROF-01, PROF-02, PROF-03, PROF-04, CONF-05 (Gap Closure)
+**Gap Closure**: 关闭 v1.0-MILESTONE-AUDIT 识别的 5 个 orphaned 需求
+**Success Criteria** (what must be TRUE):
+
+  1. 04-VERIFICATION.md 已创建，汇总 Phase 4 所有需求的验收结论
+  2. REQUIREMENTS.md Traceability 表中 Phase 4 需求状态从 Pending 更新为 Done
+  3. REQUIREMENTS.md 覆盖计数从 13/18 更新为 18/18
+
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 05-01-PLAN.md — 创建 Phase 4 验收文件 + 更新可追溯性表
+
 ## Progress
 
 **执行顺序:**
-阶段按数值顺序执行: 1 → 2 → 3 → 4
+阶段按数值顺序执行: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -91,3 +110,4 @@ Plans:
 | 2. 模块拆分 | 2/2 | Complete | 2026-03-07 |
 | 3. TUI 配置向导 | 2/2 | Complete | 2026-03-08 |
 | 4. CLI 集成与 Profile 管理 | 3/3 | Complete | 2026-03-08 |
+| 5. Phase 4 验收闭环 | 0/1 | Pending | — |
