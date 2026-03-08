@@ -64,7 +64,7 @@
 | CONF-02 | Phase 1 | Done |
 | CONF-03 | Phase 1 | Done |
 | CONF-04 | Phase 3 | Done |
-| CONF-05 | Phase 4 | Pending |
+| CONF-05 | Phase 4 | Done |
 | TUI-01 | Phase 3 | Done |
 | TUI-02 | Phase 3 | Done |
 | TUI-03 | Phase 3 | Done |
@@ -72,10 +72,10 @@
 | TUI-05 | Phase 3 | Done |
 | TUI-06 | Phase 3 | Done |
 | TUI-07 | Phase 3 | Done |
-| PROF-01 | Phase 4 | Pending |
-| PROF-02 | Phase 4 | Pending |
-| PROF-03 | Phase 4 | Pending |
-| PROF-04 | Phase 4 | Pending |
+| PROF-01 | Phase 4 | Done |
+| PROF-02 | Phase 4 | Done |
+| PROF-03 | Phase 4 | Done |
+| PROF-04 | Phase 4 | Done |
 | ARCH-01 | Phase 2 | Complete |
 | ARCH-02 | Phase 1 | Done |
 

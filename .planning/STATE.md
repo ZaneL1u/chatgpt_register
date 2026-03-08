@@ -3,14 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 04 plan 04-03 complete; next up milestone audit/completion
-last_updated: "2026-03-08T16:16:34+08:00"
-last_activity: 2026-03-08 — Phase 04 04-03 完成，全部计划已完成
+last_updated: "2026-03-08T17:35:00+08:00"
+last_activity: 2026-03-08 — Phase 05 完成，v1.0 里程碑全部需求验收通过
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 10
+  completed_plans: 10
   percent: 100
 ---
 
@@ -21,23 +20,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** 用户通过 TUI 交互式向导完成所有注册配置，无需手动编辑任何配置文件
-**Current focus:** Milestone wrap-up / audit
+**Current focus:** v1.0 Milestone Complete
 
 ## Current Position
 
-Phase: 4 of 4 (CLI 集成与 Profile 管理)
-Plan: 3 of 3 in current phase
+Phase: 5 of 5 (Phase 4 验收闭环)
+Plan: 1 of 1 in current phase
 Status: Complete
-Last activity: 2026-03-08 — Phase 04 04-03 完成，Phase 4 全部计划收口
+Last activity: 2026-03-08 — Phase 05 完成，04-VERIFICATION.md 已创建，REQUIREMENTS.md Traceability 已同步
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: ~15.3min
-- Total execution time: ~2.30 hours
+- Total plans completed: 10
+- Average duration: ~14min
+- Total execution time: ~2.35 hours
 
 **By Phase:**
 
@@ -47,16 +46,18 @@ Progress: [██████████] 100%
 | 2 | 2/2 | ~20min | ~10min |
 | 3 | 2/2 | ~65min | ~32.5min |
 | 4 | 3/3 | ~40min | ~13.3min |
+| 5 | 1/1 | ~5min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 04-03, 04-02, 04-01, 03-02, 03-01
-- Trend: CLI、TUI 与 profile 已完成闭环，当前项目已具备进入里程碑审计/验收的条件
+- Last 5 plans: 05-01, 04-03, 04-02, 04-01, 03-02
+- Trend: v1.0 里程碑全部 18 个需求已验收通过
 
 *Updated after each plan completion*
 | Phase 03-tui-config-wizard P02 | 31min | 3 tasks | 11 files |
 | Phase 04-cli-profile P01 | 15min | 2 tasks | 3 files |
 | Phase 04-cli-profile P02 | 15min | 2 tasks | 8 files |
 | Phase 04-cli-profile P03 | 10min | 3 tasks | 10 files |
+| Phase 05-phase4-verification-closure P01 | 5min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -77,17 +78,18 @@ Recent decisions affecting current work:
 - [Phase 04-cli-profile]: Sub2API 分组绑定属于 profile 配置完成态；运行阶段只验证并执行，不再触发 `questionary` 或命令行补问。
 - [Phase 04-cli-profile]: 主 CLI 参数面只保留 `--profile`、`--profiles-dir`、`--non-interactive`，业务配置一律回归 profile。
 - [Phase 04-cli-profile]: 当前目录若存在 `config.json`，CLI 只给出迁移提示，不再尝试读取旧 JSON 配置。
+- [Phase 05-phase4-verification-closure]: 验收文件采用与 Phase 1-3 一致的结构，所有 Evidence 引用指向已存在的测试文件和代码路径。
 
 ### Pending Todos
 
-None yet.
+None — v1.0 milestone complete.
 
 ### Blockers/Concerns
 
-None yet.
+None — all requirements satisfied.
 
 ## Session Continuity
 
-Last session: 2026-03-08T16:16:34+08:00
-Stopped at: Phase 04 complete; ready for milestone audit/completion
+Last session: 2026-03-08T17:35:00+08:00
+Stopped at: v1.0 Milestone Complete — all 5 phases finished, 18/18 requirements verified
 Resume file: None

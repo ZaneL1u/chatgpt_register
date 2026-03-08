@@ -17,7 +17,7 @@
 - [x] **Phase 2: 模块拆分** - 单文件拆为多模块包结构，run_batch() 接受配置参数 (completed 2026-03-07)
 - [x] **Phase 3: TUI 配置向导** - Textual 多屏分步向导，覆盖完整配置流程 (completed 2026-03-08)
 - [x] **Phase 4: CLI 集成与 Profile 管理** - 混合启动模式、非交互模式、移除旧配置方式 (completed 2026-03-08)
-- [ ] **Phase 5: Phase 4 验收闭环** - 创建 04-VERIFICATION.md，完成里程碑审计缺口关闭
+- [x] **Phase 5: Phase 4 验收闭环** - 创建 04-VERIFICATION.md，完成里程碑审计缺口关闭 (completed 2026-03-08)
 
 ## Phase Details
 
@@ -130,7 +130,7 @@ Plans:
 
 Plans:
 
-- [ ] 05-01-PLAN.md — 创建 Phase 4 验收文件 + 更新可追溯性表
+- [x] 05-01-PLAN.md — 创建 Phase 4 验收文件 + 更新可追溯性表
 
 ## Progress
 
@@ -144,4 +144,4 @@ Plans:
 | 2. 模块拆分 | 2/2 | Complete | 2026-03-07 |
 | 3. TUI 配置向导 | 2/2 | Complete | 2026-03-08 |
 | 4. CLI 集成与 Profile 管理 | 3/3 | Complete | 2026-03-08 |
-| 5. Phase 4 验收闭环 | 0/1 | Pending | — |
+| 5. Phase 4 验收闭环 | 1/1 | Complete | 2026-03-08 |
