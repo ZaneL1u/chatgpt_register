@@ -204,12 +204,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
             default=provider_prefill.get("api_key", ""),
         ).ask()
 
-        domain = questionary.text(
-            "邮箱域名",
-            default=provider_prefill.get("domain", ""),
-        ).ask()
-
-        if None in (api_url, api_key, domain):
+        if None in (api_url, api_key):
             return None
 
         return {
@@ -217,7 +212,6 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
             "mailcow": {
                 "api_url": api_url.strip(),
                 "api_key": api_key,
-                "domain": domain.strip(),
             },
         }
 

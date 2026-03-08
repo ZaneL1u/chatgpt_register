@@ -156,12 +156,23 @@ class MailcowAdapter(EmailAdapter):
     def __init__(self, register, email_config: MailcowConfig):
         super().__init__(register)
         self.config = email_config
+        updates = {}
         # 自动推断 IMAP host
         if self.config.api_url and not self.config.imap_host:
             from urllib.parse import urlparse
-            self.config = self.config.model_copy(
-                update={"imap_host": urlparse(self.config.api_url).hostname or ""}
-            )
+            updates["imap_host"] = urlparse(self.config.api_url).hostname or ""
+        # 自动推断 domain
+        if self.config.api_url and not self.config.domain:
+            from urllib.parse import urlparse
+            host = urlparse(self.config.api_url).hostname or ""
+            # mail.example.com → example.com
+            parts = host.split(".")
+            if len(parts) > 2:
+                updates["domain"] = ".".join(parts[-2:])
+            else:
+                updates["domain"] = host
+        if updates:
+            self.config = self.config.model_copy(update=updates)
 
     def create_temp_email(self):
         if not self.config.domain:
