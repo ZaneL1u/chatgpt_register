@@ -73,11 +73,12 @@ Plans:
   2. 用户可通过 `--profile <name>` 参数直接加载 profile 跳过 TUI，实现非交互模式运行
   3. 用户可基于已有 profile 复制派生新配置
   4. config.json 配置方式已完全移除，TUI + TOML 是唯一配置入口
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [x] 04-01-PLAN.md — Profile 仓储强化 + 摘要接口（Wave 1）
+- [ ] 04-02-PLAN.md — TUI Profile 启动页 + 新建/派生保存闭环（Wave 2）
+- [ ] 04-03-PLAN.md — `--profile` 直载路径 + 遗留配置清理（Wave 3）
 
 ## Progress
 
@@ -89,4 +90,4 @@ Plans:
 | 1. 配置层基础 | 0/2 | Planning complete | - |
 | 2. 模块拆分 | 2/2 | Complete   | 2026-03-07 |
 | 3. TUI 配置向导 | 2/2 | Complete    | 2026-03-08 |
-| 4. CLI 集成与 Profile 管理 | 0/? | Not started | - |
+| 4. CLI 集成与 Profile 管理 | 1/3 | In progress | - |

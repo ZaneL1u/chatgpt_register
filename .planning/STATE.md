@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 03 complete; next up planning Phase 04
-last_updated: "2026-03-08T01:45:00+08:00"
-last_activity: 2026-03-08 — Phase 03 TUI 配置向导完成，待规划 Phase 04
+status: executing
+stopped_at: Phase 04 plan 04-01 complete; next up execute 04-02
+last_updated: "2026-03-08T15:50:37+08:00"
+last_activity: 2026-03-08 — Phase 04 04-01 完成，待执行 04-02
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
-  percent: 75
+  total_plans: 9
+  completed_plans: 7
+  percent: 78
 ---
 
 # Project State
@@ -26,18 +26,18 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 ## Current Position
 
 Phase: 4 of 4 (CLI 集成与 Profile 管理)
-Plan: 0 of 0 in current phase
-Status: Ready for planning
-Last activity: 2026-03-08 — Phase 03 TUI 配置向导完成
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-03-08 — Phase 04 04-01 完成
 
-Progress: [███████░░░] 75%
+Progress: [████████░░] 78%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: ~16.3min
-- Total execution time: ~1.63 hours
+- Total plans completed: 7
+- Average duration: ~16.1min
+- Total execution time: ~1.88 hours
 
 **By Phase:**
 
@@ -46,13 +46,15 @@ Progress: [███████░░░] 75%
 | 1 | 2/2 | ~13min | ~6.5min |
 | 2 | 2/2 | ~20min | ~10min |
 | 3 | 2/2 | ~65min | ~32.5min |
+| 4 | 1/3 | ~15min | ~15min |
 
 **Recent Trend:**
-- Last 5 plans: 03-01, 03-02, 02-02, 02-01, 01-02
-- Trend: TUI 交互层投入增加，单计划时长上升但验证覆盖同步增强
+- Last 5 plans: 04-01, 03-02, 03-01, 02-02, 02-01
+- Trend: 先收稳 Profile 仓储契约，再向上接入 TUI/CLI，降低后续入口层重复解析风险
 
 *Updated after each plan completion*
 | Phase 03-tui-config-wizard P02 | 31min | 3 tasks | 11 files |
+| Phase 04-cli-profile P01 | 15min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -68,6 +70,11 @@ Recent decisions affecting current work:
 - [Phase 02-module-split]: 邮件适配器与上传目标分别通过工厂函数和显式参数注入，避免再依赖模块级可变全局变量。
 - [Phase 03-tui-config-wizard]: WizardState 持久保存未选中邮箱平台与上传目标的草稿值，隐藏字段只隐藏不清空。
 - [Phase 03-tui-config-wizard]: 交互式 CLI 默认进入 TUI，TUI 返回 RegisterConfig 后直接执行 run_batch(config)。
+- [Phase 04-cli-profile]: ProfileManager 先补摘要/名称校验一致性，再让 TUI 和 CLI 共同消费同一套 profile 元信息。
+- [Phase 04-cli-profile]: 交互式入口先做 profile 选择/新建/派生，非交互入口仅接受 `--profile` 直载，不再回落到 `config.json`、环境变量或 `input()` 补问。
+- [Phase 04-cli-profile]: Sub2API 分组绑定属于 profile 配置完成态；运行阶段只验证并执行，不再触发 `questionary` 或命令行补问。
+- [Phase 04-cli-profile]: `ProfileSummary` 成为 CLI/TUI 的统一摘要接口，摘要生成必须复用 `RegisterConfig` 校验而非旁路解析 TOML。
+- [Phase 04-cli-profile]: Profile 仓储将不存在、坏 TOML、结构非法分别映射到稳定异常，便于入口层输出一致中文提示。
 
 ### Pending Todos
 
@@ -79,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-08T01:45:00+08:00
-Stopped at: Phase 03 complete; ready to plan Phase 04
+Last session: 2026-03-08T15:50:37+08:00
+Stopped at: Phase 04 plan 04-01 complete; ready to execute 04-02
 Resume file: None
