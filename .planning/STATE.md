@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 04 plan 04-02 complete; next up execute 04-03
-last_updated: "2026-03-08T16:05:29+08:00"
-last_activity: 2026-03-08 — Phase 04 04-02 完成，待执行 04-03
+status: completed
+stopped_at: Phase 04 plan 04-03 complete; next up milestone audit/completion
+last_updated: "2026-03-08T16:16:34+08:00"
+last_activity: 2026-03-08 — Phase 04 04-03 完成，全部计划已完成
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 9
-  completed_plans: 8
-  percent: 89
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** 用户通过 TUI 交互式向导完成所有注册配置，无需手动编辑任何配置文件
-**Current focus:** Phase 4: CLI 集成与 Profile 管理
+**Current focus:** Milestone wrap-up / audit
 
 ## Current Position
 
 Phase: 4 of 4 (CLI 集成与 Profile 管理)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-03-08 — Phase 04 04-02 完成
+Plan: 3 of 3 in current phase
+Status: Complete
+Last activity: 2026-03-08 — Phase 04 04-03 完成，Phase 4 全部计划收口
 
-Progress: [█████████░] 89%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: ~16.0min
-- Total execution time: ~2.13 hours
+- Total plans completed: 9
+- Average duration: ~15.3min
+- Total execution time: ~2.30 hours
 
 **By Phase:**
 
@@ -46,16 +46,17 @@ Progress: [█████████░] 89%
 | 1 | 2/2 | ~13min | ~6.5min |
 | 2 | 2/2 | ~20min | ~10min |
 | 3 | 2/2 | ~65min | ~32.5min |
-| 4 | 2/3 | ~30min | ~15min |
+| 4 | 3/3 | ~40min | ~13.3min |
 
 **Recent Trend:**
-- Last 5 plans: 04-02, 04-01, 03-02, 03-01, 02-02
-- Trend: 已完成 TUI 内 profile 分流与保存闭环，下一步可专注 CLI `--profile` 直载和遗留入口清理
+- Last 5 plans: 04-03, 04-02, 04-01, 03-02, 03-01
+- Trend: CLI、TUI 与 profile 已完成闭环，当前项目已具备进入里程碑审计/验收的条件
 
 *Updated after each plan completion*
 | Phase 03-tui-config-wizard P02 | 31min | 3 tasks | 11 files |
 | Phase 04-cli-profile P01 | 15min | 2 tasks | 3 files |
 | Phase 04-cli-profile P02 | 15min | 2 tasks | 8 files |
+| Phase 04-cli-profile P03 | 10min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -74,10 +75,8 @@ Recent decisions affecting current work:
 - [Phase 04-cli-profile]: ProfileManager 先补摘要/名称校验一致性，再让 TUI 和 CLI 共同消费同一套 profile 元信息。
 - [Phase 04-cli-profile]: 交互式入口先做 profile 选择/新建/派生，非交互入口仅接受 `--profile` 直载，不再回落到 `config.json`、环境变量或 `input()` 补问。
 - [Phase 04-cli-profile]: Sub2API 分组绑定属于 profile 配置完成态；运行阶段只验证并执行，不再触发 `questionary` 或命令行补问。
-- [Phase 04-cli-profile]: `ProfileSummary` 成为 CLI/TUI 的统一摘要接口，摘要生成必须复用 `RegisterConfig` 校验而非旁路解析 TOML。
-- [Phase 04-cli-profile]: Profile 仓储将不存在、坏 TOML、结构非法分别映射到稳定异常，便于入口层输出一致中文提示。
-- [Phase 04-cli-profile]: 交互式 TUI 在存在已保存 profile 时先显示选择列表，并通过同一个 WizardApp 壳层分流到运行、新建或派生。
-- [Phase 04-cli-profile]: 新建/派生配置必须在摘要页之后显式命名保存；取消保存时保持内存草稿，不写任何半成品 TOML。
+- [Phase 04-cli-profile]: 主 CLI 参数面只保留 `--profile`、`--profiles-dir`、`--non-interactive`，业务配置一律回归 profile。
+- [Phase 04-cli-profile]: 当前目录若存在 `config.json`，CLI 只给出迁移提示，不再尝试读取旧 JSON 配置。
 
 ### Pending Todos
 
@@ -89,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-08T16:05:29+08:00
-Stopped at: Phase 04 plan 04-02 complete; ready to execute 04-03
+Last session: 2026-03-08T16:16:34+08:00
+Stopped at: Phase 04 complete; ready for milestone audit/completion
 Resume file: None

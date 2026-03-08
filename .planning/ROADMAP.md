@@ -12,10 +12,10 @@
 
 小数阶段按数值顺序插入到相邻整数阶段之间。
 
-- [ ] **Phase 1: 配置层基础** - Pydantic 配置模型 + TOML ProfileManager + 全局变量收拢
+- [x] **Phase 1: 配置层基础** - Pydantic 配置模型 + TOML ProfileManager + 全局变量收拢 (completed 2026-03-08)
 - [x] **Phase 2: 模块拆分** - 单文件拆为多模块包结构，run_batch() 接受配置参数 (completed 2026-03-07)
 - [x] **Phase 3: TUI 配置向导** - Textual 多屏分步向导，覆盖完整配置流程 (completed 2026-03-08)
-- [ ] **Phase 4: CLI 集成与 Profile 管理** - 混合启动模式、非交互模式、移除旧配置方式
+- [x] **Phase 4: CLI 集成与 Profile 管理** - 混合启动模式、非交互模式、移除旧配置方式 (completed 2026-03-08)
 
 ## Phase Details
 
@@ -78,7 +78,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md — Profile 仓储强化 + 摘要接口（Wave 1）
 - [x] 04-02-PLAN.md — TUI Profile 启动页 + 新建/派生保存闭环（Wave 2）
-- [ ] 04-03-PLAN.md — `--profile` 直载路径 + 遗留配置清理（Wave 3）
+- [x] 04-03-PLAN.md — `--profile` 直载路径 + 遗留配置清理（Wave 3）
 
 ## Progress
 
@@ -87,7 +87,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 配置层基础 | 0/2 | Planning complete | - |
-| 2. 模块拆分 | 2/2 | Complete   | 2026-03-07 |
-| 3. TUI 配置向导 | 2/2 | Complete    | 2026-03-08 |
-| 4. CLI 集成与 Profile 管理 | 2/3 | In progress | - |
+| 1. 配置层基础 | 2/2 | Complete | 2026-03-08 |
+| 2. 模块拆分 | 2/2 | Complete | 2026-03-07 |
+| 3. TUI 配置向导 | 2/2 | Complete | 2026-03-08 |
+| 4. CLI 集成与 Profile 管理 | 3/3 | Complete | 2026-03-08 |
