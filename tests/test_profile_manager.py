@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from chatgpt_register.config.model import RegisterConfig
-from chatgpt_register.config.profile import ProfileManager
+from chatgpt_register.config.profile import (
+    InvalidProfileNameError,
+    ProfileDecodeError,
+    ProfileManager,
+    ProfileNotFoundError,
+    ProfileSummary,
+    ProfileValidationError,
+)
 
 
 class TestSaveAndLoad:
@@ -49,9 +57,11 @@ class TestSaveAndLoad:
         config1 = RegisterConfig.model_validate(sample_duckmail_dict)
         pm.save("overwrite-test", config1)
 
-        # 修改 total_accounts 后再保存
         modified = sample_duckmail_dict.copy()
-        modified["registration"] = {**sample_duckmail_dict["registration"], "total_accounts": 99}
+        modified["registration"] = {
+            **sample_duckmail_dict["registration"],
+            "total_accounts": 99,
+        }
         config2 = RegisterConfig.model_validate(modified)
         pm.save("overwrite-test", config2)
 
@@ -63,10 +73,44 @@ class TestLoadErrors:
     """测试加载错误处理"""
 
     def test_load_nonexistent(self, tmp_profiles_dir: Path) -> None:
-        """加载不存在的 profile -> FileNotFoundError，包含中文"""
+        """加载不存在的 profile -> ProfileNotFoundError，包含中文"""
         pm = ProfileManager(base_dir=tmp_profiles_dir)
-        with pytest.raises(FileNotFoundError, match="Profile 不存在"):
+        with pytest.raises(ProfileNotFoundError, match="Profile 不存在: nonexistent"):
             pm.load("nonexistent")
+
+    def test_load_invalid_name(self, tmp_profiles_dir: Path) -> None:
+        """非法名称加载 -> InvalidProfileNameError"""
+        pm = ProfileManager(base_dir=tmp_profiles_dir)
+        with pytest.raises(InvalidProfileNameError, match="Profile 名称"):
+            pm.load("../escape")
+
+    def test_load_broken_toml(self, tmp_profiles_dir: Path) -> None:
+        """坏 TOML -> ProfileDecodeError，消息可直接提示用户"""
+        pm = ProfileManager(base_dir=tmp_profiles_dir)
+        tmp_profiles_dir.mkdir(parents=True, exist_ok=True)
+        (tmp_profiles_dir / "broken.toml").write_text("[email\nprovider='duckmail'\n")
+
+        with pytest.raises(ProfileDecodeError, match="TOML 解析失败: broken"):
+            pm.load("broken")
+
+    def test_load_invalid_structure(self, tmp_profiles_dir: Path) -> None:
+        """结构不合法 -> ProfileValidationError，包含校验细节"""
+        pm = ProfileManager(base_dir=tmp_profiles_dir)
+        tmp_profiles_dir.mkdir(parents=True, exist_ok=True)
+        (tmp_profiles_dir / "invalid.toml").write_text(
+            """
+[email]
+provider = "duckmail"
+
+[registration]
+total_accounts = 2
+workers = 1
+""".strip()
+        )
+
+        with pytest.raises(ProfileValidationError, match="Profile 配置不合法") as exc_info:
+            pm.load("invalid")
+        assert "配置校验失败" in str(exc_info.value)
 
 
 class TestCustomBaseDir:
@@ -104,6 +148,53 @@ class TestListProfiles:
         profiles = pm.list_profiles()
         assert profiles == ["alpha", "bravo", "charlie"]
 
+    def test_list_profile_summaries_all_platforms(
+        self,
+        tmp_profiles_dir: Path,
+        sample_duckmail_dict: dict,
+        sample_mailcow_dict: dict,
+        sample_mailtm_dict: dict,
+    ) -> None:
+        """摘要接口覆盖全部邮箱平台并保持稳定排序"""
+        pm = ProfileManager(base_dir=tmp_profiles_dir)
+        pm.save("charlie", RegisterConfig.model_validate(sample_mailtm_dict))
+        pm.save("alpha", RegisterConfig.model_validate(sample_duckmail_dict))
+        pm.save("bravo", RegisterConfig.model_validate(sample_mailcow_dict))
+
+        summaries = pm.list_profile_summaries()
+
+        assert [summary.name for summary in summaries] == ["alpha", "bravo", "charlie"]
+        assert all(isinstance(summary, ProfileSummary) for summary in summaries)
+
+        duckmail_summary, mailcow_summary, mailtm_summary = summaries
+        assert duckmail_summary.email_provider == "duckmail"
+        assert duckmail_summary.upload_targets == ("cpa",)
+        assert duckmail_summary.total_accounts == 5
+        assert duckmail_summary.workers == 3
+        assert duckmail_summary.path.name == "alpha.toml"
+        assert isinstance(duckmail_summary.updated_at, datetime)
+
+        assert mailcow_summary.email_provider == "mailcow"
+        assert mailcow_summary.upload_targets == ()
+        assert mailcow_summary.total_accounts == 10
+        assert mailcow_summary.workers == 4
+
+        assert mailtm_summary.email_provider == "mailtm"
+        assert mailtm_summary.upload_targets == ("sub2api",)
+        assert mailtm_summary.total_accounts == 3
+        assert mailtm_summary.workers == 2
+
+    def test_list_profile_summaries_broken_toml(
+        self, tmp_profiles_dir: Path
+    ) -> None:
+        """摘要接口遇到坏文件 -> 抛出可识别异常供上层决定处理策略"""
+        pm = ProfileManager(base_dir=tmp_profiles_dir)
+        tmp_profiles_dir.mkdir(parents=True, exist_ok=True)
+        (tmp_profiles_dir / "broken.toml").write_text("[email\nprovider='duckmail'\n")
+
+        with pytest.raises(ProfileDecodeError, match="TOML 解析失败: broken"):
+            pm.list_profile_summaries()
+
 
 class TestExistsAndDelete:
     """测试存在性检查和删除"""
@@ -117,6 +208,12 @@ class TestExistsAndDelete:
         config = RegisterConfig.model_validate(sample_duckmail_dict)
         pm.save("test", config)
         assert pm.exists("test") is True
+
+    def test_exists_invalid_name(self, tmp_profiles_dir: Path) -> None:
+        """非法名称 exists -> InvalidProfileNameError"""
+        pm = ProfileManager(base_dir=tmp_profiles_dir)
+        with pytest.raises(InvalidProfileNameError, match="Profile 名称"):
+            pm.exists("bad/name")
 
     def test_delete(
         self, tmp_profiles_dir: Path, sample_duckmail_dict: dict
@@ -132,7 +229,13 @@ class TestExistsAndDelete:
     def test_delete_nonexistent(self, tmp_profiles_dir: Path) -> None:
         """删除不存在的 profile -> 不报错"""
         pm = ProfileManager(base_dir=tmp_profiles_dir)
-        pm.delete("does-not-exist")  # should not raise
+        pm.delete("does-not-exist")
+
+    def test_delete_invalid_name(self, tmp_profiles_dir: Path) -> None:
+        """非法名称删除 -> InvalidProfileNameError"""
+        pm = ProfileManager(base_dir=tmp_profiles_dir)
+        with pytest.raises(InvalidProfileNameError, match="Profile 名称"):
+            pm.delete("bad/name")
 
 
 class TestTomlContent:
@@ -183,7 +286,6 @@ class TestRoundtrip:
             original = RegisterConfig.model_validate(data)
             pm.save(name, original)
             loaded = pm.load(name)
-            # 比较序列化后的 dict 确保完整一致
             assert original.model_dump(mode="json", exclude_none=True) == loaded.model_dump(
                 mode="json", exclude_none=True
             )
@@ -195,15 +297,15 @@ class TestNameValidation:
     @pytest.mark.parametrize(
         "bad_name",
         [
-            "",           # 空串
-            "../escape",  # 路径穿越
-            "a/b",        # 路径分隔符
-            "a\\b",       # 反斜杠路径分隔符
-            "-leading",   # 非字母数字开头
-            "_leading",   # 非字母数字开头
-            "A" * 65,     # 超过 64 字符
-            "UPPER",      # 大写字母
-            "has space",  # 含空格
+            "",
+            "../escape",
+            "a/b",
+            "a\\b",
+            "-leading",
+            "_leading",
+            "A" * 65,
+            "UPPER",
+            "has space",
         ],
     )
     def test_profile_name_validation(
@@ -212,8 +314,8 @@ class TestNameValidation:
         sample_duckmail_dict: dict,
         bad_name: str,
     ) -> None:
-        """非法名称 -> 抛出 ValueError"""
+        """非法名称 save -> 抛出 InvalidProfileNameError"""
         pm = ProfileManager(base_dir=tmp_profiles_dir)
         config = RegisterConfig.model_validate(sample_duckmail_dict)
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidProfileNameError):
             pm.save(bad_name, config)
