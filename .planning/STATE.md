@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 04 plan 04-01 complete; next up execute 04-02
-last_updated: "2026-03-08T15:50:37+08:00"
-last_activity: 2026-03-08 — Phase 04 04-01 完成，待执行 04-02
+stopped_at: Phase 04 plan 04-02 complete; next up execute 04-03
+last_updated: "2026-03-08T16:05:29+08:00"
+last_activity: 2026-03-08 — Phase 04 04-02 完成，待执行 04-03
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 # Project State
@@ -26,18 +26,18 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 ## Current Position
 
 Phase: 4 of 4 (CLI 集成与 Profile 管理)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-03-08 — Phase 04 04-01 完成
+Last activity: 2026-03-08 — Phase 04 04-02 完成
 
-Progress: [████████░░] 78%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: ~16.1min
-- Total execution time: ~1.88 hours
+- Total plans completed: 8
+- Average duration: ~16.0min
+- Total execution time: ~2.13 hours
 
 **By Phase:**
 
@@ -46,15 +46,16 @@ Progress: [████████░░] 78%
 | 1 | 2/2 | ~13min | ~6.5min |
 | 2 | 2/2 | ~20min | ~10min |
 | 3 | 2/2 | ~65min | ~32.5min |
-| 4 | 1/3 | ~15min | ~15min |
+| 4 | 2/3 | ~30min | ~15min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01, 03-02, 03-01, 02-02, 02-01
-- Trend: 先收稳 Profile 仓储契约，再向上接入 TUI/CLI，降低后续入口层重复解析风险
+- Last 5 plans: 04-02, 04-01, 03-02, 03-01, 02-02
+- Trend: 已完成 TUI 内 profile 分流与保存闭环，下一步可专注 CLI `--profile` 直载和遗留入口清理
 
 *Updated after each plan completion*
 | Phase 03-tui-config-wizard P02 | 31min | 3 tasks | 11 files |
 | Phase 04-cli-profile P01 | 15min | 2 tasks | 3 files |
+| Phase 04-cli-profile P02 | 15min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,8 @@ Recent decisions affecting current work:
 - [Phase 04-cli-profile]: Sub2API 分组绑定属于 profile 配置完成态；运行阶段只验证并执行，不再触发 `questionary` 或命令行补问。
 - [Phase 04-cli-profile]: `ProfileSummary` 成为 CLI/TUI 的统一摘要接口，摘要生成必须复用 `RegisterConfig` 校验而非旁路解析 TOML。
 - [Phase 04-cli-profile]: Profile 仓储将不存在、坏 TOML、结构非法分别映射到稳定异常，便于入口层输出一致中文提示。
+- [Phase 04-cli-profile]: 交互式 TUI 在存在已保存 profile 时先显示选择列表，并通过同一个 WizardApp 壳层分流到运行、新建或派生。
+- [Phase 04-cli-profile]: 新建/派生配置必须在摘要页之后显式命名保存；取消保存时保持内存草稿，不写任何半成品 TOML。
 
 ### Pending Todos
 
@@ -86,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-08T15:50:37+08:00
-Stopped at: Phase 04 plan 04-01 complete; ready to execute 04-02
+Last session: 2026-03-08T16:05:29+08:00
+Stopped at: Phase 04 plan 04-02 complete; ready to execute 04-03
 Resume file: None
