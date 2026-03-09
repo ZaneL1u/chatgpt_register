@@ -174,14 +174,22 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
     """询问邮箱配置。"""
     provider = questionary.select(
         "邮箱平台",
-        choices=["DuckMail", "Mailcow", "Mail.tm"],
+        choices=["DuckMail", "Mailcow", "Mail.tm", "Catchmail.io", "Maildrop.cc"],
         default=provider_display_name(prefill.get("provider", "mailtm")),
     ).ask()
 
     if provider is None:
         return None
 
-    provider_key = provider.lower().replace(".", "")
+    # 显示名称 -> provider key 映射
+    _provider_key_map = {
+        "DuckMail": "duckmail",
+        "Mailcow": "mailcow",
+        "Mail.tm": "mailtm",
+        "Catchmail.io": "catchmail",
+        "Maildrop.cc": "maildrop",
+    }
+    provider_key = _provider_key_map.get(provider, provider.lower().replace(".", ""))
     provider_prefill = prefill.get(provider_key) or {}
 
     if provider == "DuckMail":
@@ -246,19 +254,74 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
             "mailcow": mailcow_config,
         }
 
-    else:  # Mail.tm
-        api_base = questionary.text(
-            "Mail.tm API Base",
-            default=provider_prefill.get("api_base", "https://api.mail.tm"),
-        ).ask()
+    else:  # Mail.tm / Catchmail.io / Maildrop.cc
+        if provider_key == "catchmail":
+            api_base = questionary.text(
+                "Catchmail.io API Base",
+                default=provider_prefill.get("api_base", "https://api.catchmail.io"),
+            ).ask()
 
-        if api_base is None:
-            return None
+            if api_base is None:
+                return None
 
-        return {
-            "provider": "mailtm",
-            "mailtm": {"api_base": _ensure_scheme(api_base)},
-        }
+            all_domains = [
+                "catchmail.io",
+                "catchmail.cc",
+                "catchmail.com",
+                "catchmail.net",
+                "catchmail.org",
+                "catchmail.co",
+            ]
+            default_domains = provider_prefill.get("domains", all_domains)
+
+            selected_domains = questionary.checkbox(
+                "选择可用域名（空格切换，回车确认）",
+                choices=[
+                    questionary.Choice(d, checked=(d in default_domains))
+                    for d in all_domains
+                ],
+            ).ask()
+
+            if selected_domains is None:
+                return None
+            if not selected_domains:
+                selected_domains = all_domains  # 未选则默认全选
+
+            return {
+                "provider": "catchmail",
+                "catchmail": {
+                    "api_base": _ensure_scheme(api_base),
+                    "domains": selected_domains,
+                },
+            }
+
+        elif provider_key == "maildrop":
+            api_base = questionary.text(
+                "Maildrop.cc GraphQL API Base",
+                default=provider_prefill.get("api_base", "https://api.maildrop.cc/graphql"),
+            ).ask()
+
+            if api_base is None:
+                return None
+
+            return {
+                "provider": "maildrop",
+                "maildrop": {"api_base": _ensure_scheme(api_base)},
+            }
+
+        else:  # Mail.tm
+            api_base = questionary.text(
+                "Mail.tm API Base",
+                default=provider_prefill.get("api_base", "https://api.mail.tm"),
+            ).ask()
+
+            if api_base is None:
+                return None
+
+            return {
+                "provider": "mailtm",
+                "mailtm": {"api_base": _ensure_scheme(api_base)},
+            }
 
 
 def _ask_registration_config(prefill: dict[str, Any]) -> dict[str, Any] | None:

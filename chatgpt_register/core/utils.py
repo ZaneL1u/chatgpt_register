@@ -28,6 +28,8 @@ def provider_display_name(provider: str) -> str:
         "duckmail": "DuckMail",
         "mailcow": "Mailcow",
         "mailtm": "Mail.tm",
+        "catchmail": "Catchmail.io",
+        "maildrop": "Maildrop.cc",
     }
     return mapping.get((provider or "").lower(), provider or "Unknown")
 
