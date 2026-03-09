@@ -39,6 +39,29 @@ class MailTmConfig(BaseModel):
     api_base: str = "https://api.mail.tm"
 
 
+class CatchmailConfig(BaseModel):
+    """Catchmail.io 免费临时邮箱配置"""
+
+    api_base: str = "https://api.catchmail.io"
+    domains: list[str] = Field(
+        default_factory=lambda: [
+            "catchmail.io",
+            "catchmail.cc",
+            "catchmail.com",
+            "catchmail.net",
+            "catchmail.org",
+            "catchmail.co",
+        ],
+        description="可用域名列表（默认全选）",
+    )
+
+
+class MaildropConfig(BaseModel):
+    """Maildrop.cc 免费临时邮箱配置"""
+
+    api_base: str = "https://api.maildrop.cc/graphql"
+
+
 # ---------------------------------------------------------------------------
 # 邮箱配置（含平台联动校验）
 # ---------------------------------------------------------------------------
@@ -47,10 +70,12 @@ class MailTmConfig(BaseModel):
 class EmailConfig(BaseModel):
     """邮箱配置，包含 provider 与对应平台子模型的联动校验"""
 
-    provider: Literal["duckmail", "mailcow", "mailtm"]
+    provider: Literal["duckmail", "mailcow", "mailtm", "catchmail", "maildrop"]
     duckmail: DuckMailConfig | None = None
     mailcow: MailcowConfig | None = None
     mailtm: MailTmConfig | None = None
+    catchmail: CatchmailConfig | None = None
+    maildrop: MaildropConfig | None = None
 
     @field_validator("provider", mode="before")
     @classmethod
@@ -65,6 +90,8 @@ class EmailConfig(BaseModel):
             "duckmail": self.duckmail,
             "mailcow": self.mailcow,
             "mailtm": self.mailtm,
+            "catchmail": self.catchmail,
+            "maildrop": self.maildrop,
         }
         if mapping.get(self.provider) is None:
             raise ValueError(

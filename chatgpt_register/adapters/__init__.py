@@ -31,4 +31,16 @@ def build_email_adapter(register, config: RegisterConfig) -> EmailAdapter:
             raise Exception("email_provider=mailtm 但未设置 mailtm 配置节")
         return MailTmAdapter(register, config.email.mailtm)
 
-    raise Exception(f"未知邮箱提供者: {provider}，仅支持: duckmail / mailcow / mailtm")
+    if provider == "catchmail":
+        from chatgpt_register.adapters.catchmail import CatchmailAdapter
+        if config.email.catchmail is None:
+            raise Exception("email_provider=catchmail 但未设置 catchmail 配置节")
+        return CatchmailAdapter(register, config.email.catchmail)
+
+    if provider == "maildrop":
+        from chatgpt_register.adapters.maildrop import MaildropAdapter
+        if config.email.maildrop is None:
+            raise Exception("email_provider=maildrop 但未设置 maildrop 配置节")
+        return MaildropAdapter(register, config.email.maildrop)
+
+    raise Exception(f"未知邮箱提供者: {provider}，仅支持: duckmail / mailcow / mailtm / catchmail / maildrop")
