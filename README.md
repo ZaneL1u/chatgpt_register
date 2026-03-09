@@ -7,7 +7,7 @@
 ## 它能做什么
 
 - **批量注册** — 线程池并发，可配置并发数和代理
-- **多邮箱平台** — 支持 DuckMail、Mailcow（自建）、Mail.tm
+- **多邮箱平台** — 支持 DuckMail、Mailcow（自建）、Mail.tm、Catchmail.io、Maildrop.cc
 - **自动验证码** — Mailcow 走 IMAP，DuckMail / Mail.tm 走 API
 - **OAuth Token** — 注册后自动走完 OAuth 流程，拿到 `access_token` + `refresh_token`
 - **Token 上传** — 支持上传到 CPA 平台或 Sub2API
@@ -74,8 +74,17 @@ chatgpt-register [--profile NAME] [--profiles-dir PATH] [--non-interactive]
 | **DuckMail** | API Base + Bearer Token | API 轮询 |
 | **Mailcow** | API URL + API Key | IMAP（域名和 IMAP 地址自动推断） |
 | **Mail.tm** | API Base | API 轮询 |
+| **Catchmail.io** | API Base + 可选域名 | API 轮询 |
+| **Maildrop.cc** | GraphQL API Base | GraphQL 查询 |
 
 Mailcow 适合有自建邮箱服务的场景，注册完成后会自动清理临时邮箱。
+
+Catchmail.io 和 Maildrop.cc 是完全免费、无需注册的临时邮箱服务：
+
+- **Catchmail.io** — 提供 6 个域名（`catchmail.io`/`.cc`/`.com`/`.net`/`.org`/`.co`），向导中可勾选启用哪些域名，运行时随机轮换。REST API，无需 API Key。
+- **Maildrop.cc** — 固定域名 `maildrop.cc`，GraphQL API，无需 API Key。
+
+> **注意**：Catchmail.io 和 Maildrop.cc 的邮箱是公共共享的（无密码保护），适合快速测试。生产场景建议使用 Mailcow 或 Mail.tm。
 
 ## 上传目标
 
@@ -146,7 +155,9 @@ chatgpt_register/
 │   ├── base.py         # 基类
 │   ├── duckmail.py
 │   ├── mailcow.py
-│   └── mailtm.py
+│   ├── mailtm.py
+│   ├── catchmail.py
+│   └── maildrop.py
 ├── upload/             # Token 上传
 │   ├── cpa.py
 │   └── sub2api.py
@@ -181,6 +192,7 @@ required = false
 
 - Mailcow：检查 IMAP 连通性（默认端口 993/SSL），先单线程跑 1 个账号排查
 - DuckMail / Mail.tm：确认 API Base 和凭证正确
+- Catchmail.io / Maildrop.cc：确认网络可达，这两个服务无需凭证
 
 **报错 `unsupported_email`？**
 
