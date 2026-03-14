@@ -14,7 +14,7 @@
 
 ### BATCH — 批次输出归档
 
-- [ ] **BATCH-01**：注册完成后，所有结果文件（tokens、ak、rk、token json）自动写入 `output/<YYYYMMDD_HHMM>/` 归档目录
+- [x] **BATCH-01**：注册完成后，所有结果文件（tokens、ak、rk、token json）自动写入 `output/<YYYYMMDD_HHMM>/` 归档目录
 
 ### PROXY — 多代理调度
 
@@ -64,7 +64,7 @@
 | HUMAN-02 | Phase 6 | ✅ 完成 |
 | HUMAN-03 | Phase 6 | ✅ 完成 |
 | HUMAN-04 | Phase 6 | ✅ 完成 |
-| BATCH-01 | Phase 7 | 待定 |
+| BATCH-01 | Phase 7 | :white_check_mark: 完成 |
 | PROXY-01 | Phase 8 | 待定 |
 | PROXY-02 | Phase 8 | 待定 |
 | PROXY-03 | Phase 8 | 待定 |
