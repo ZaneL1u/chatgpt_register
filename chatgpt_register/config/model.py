@@ -70,6 +70,7 @@ class MaildropConfig(BaseModel):
 class EmailConfig(BaseModel):
     """邮箱配置，包含 provider 与对应平台子模型的联动校验"""
 
+    humanize_email: bool = True
     provider: Literal["duckmail", "mailcow", "mailtm", "catchmail", "maildrop"]
     duckmail: DuckMailConfig | None = None
     mailcow: MailcowConfig | None = None

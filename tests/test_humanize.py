@@ -19,8 +19,8 @@ from chatgpt_register.config.model import EmailConfig
 # 格式正则定义
 # ---------------------------------------------------------------------------
 
-# firstname.lastname — e.g. emma.wilson
-PAT_FIRST_DOT_LAST = re.compile(r"^[a-z]+\.[a-z]+$")
+# firstname.lastname — e.g. emma.wilson (first name >= 2 chars to distinguish from f.lastname)
+PAT_FIRST_DOT_LAST = re.compile(r"^[a-z]{2,}\.[a-z]+$")
 
 # firstname_NNNN — e.g. emma_1994
 PAT_FIRST_UNDER_YEAR = re.compile(r"^[a-z]+_(\d{4})$")
