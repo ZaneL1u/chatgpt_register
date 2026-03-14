@@ -10,6 +10,8 @@ dependencies = [
   "questionary>=2.0.0",
   "rich>=13.7.0",
   "tomli-w>=1.2",
+  "faker>=33.0,<35",
+  "names>=0.3.0",
 ]
 scripts = { chatgpt-register = "chatgpt_register.cli:main" }
 

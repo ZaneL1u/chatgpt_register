@@ -117,6 +117,8 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "curl-cffi" },
+    { name = "faker" },
+    { name = "names" },
     { name = "pydantic" },
     { name = "questionary" },
     { name = "rich" },
@@ -132,6 +134,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "curl-cffi", specifier = ">=0.7.0" },
+    { name = "faker", specifier = ">=33.0,<35" },
+    { name = "names", specifier = ">=0.3.0" },
     { name = "pydantic", specifier = ">=2.12,<3" },
     { name = "questionary", specifier = ">=2.0.0" },
     { name = "rich", specifier = ">=13.7.0" },
@@ -189,6 +193,19 @@ wheels = [
 ]
 
 [[package]]
+name = "faker"
+version = "34.0.2"
+source = { registry = "https://pypi.mirrors.ustc.edu.cn/simple/" }
+dependencies = [
+    { name = "python-dateutil" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/84/c8/6dd8c324bfbd7e7a3a2bb641ff6eef77a954cd27a13b106bf739ae00652d/faker-34.0.2.tar.gz", hash = "sha256:57267f9b62fdf0c64b6433150e216709a9a239ec9651de0515f73c9ea2fa14e6", size = 1855985, upload-time = "2025-01-22T23:03:33.778Z" }
+wheels = [
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/9b/09/f117765bfb72784cf14e47f4e56f494cceb326f320725ee4f073538a3527/Faker-34.0.2-py3-none-any.whl", hash = "sha256:3457789911e97ce53505c8bf1ca7d4cde2bc72f8d1812c9bb5d021f6d13f13f1", size = 1895569, upload-time = "2025-01-22T23:03:29.368Z" },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.3.0"
 source = { registry = "https://pypi.mirrors.ustc.edu.cn/simple/" }
@@ -217,6 +234,12 @@ sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/d6/54/cfe61301667036e
 wheels = [
     { url = "https://mirrors.ustc.edu.cn/pypi/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
 ]
+
+[[package]]
+name = "names"
+version = "0.3.0"
+source = { registry = "https://pypi.mirrors.ustc.edu.cn/simple/" }
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/44/4e/f9cb7ef2df0250f4ba3334fbdabaa94f9c88097089763d8e85ada8092f84/names-0.3.0.tar.gz", hash = "sha256:726e46254f2ed03f1ffb5d941dae3bc67c35123941c29becd02d48d0caa2a671", size = 789099, upload-time = "2013-05-14T14:55:49.073Z" }
 
 [[package]]
 name = "packaging"
@@ -432,6 +455,18 @@ wheels = [
 ]
 
 [[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+source = { registry = "https://pypi.mirrors.ustc.edu.cn/simple/" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
+wheels = [
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
+]
+
+[[package]]
 name = "questionary"
 version = "2.1.1"
 source = { registry = "https://pypi.mirrors.ustc.edu.cn/simple/" }
@@ -454,6 +489,15 @@ dependencies = [
 sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/b3/c6/f3b320c27991c46f43ee9d856302c70dc2d0fb2dba4842ff739d5f46b393/rich-14.3.3.tar.gz", hash = "sha256:b8daa0b9e4eef54dd8cf7c86c03713f53241884e814f4e2f5fb342fe520f639b", size = 230582, upload-time = "2026-02-19T17:23:12.474Z" }
 wheels = [
     { url = "https://mirrors.ustc.edu.cn/pypi/packages/14/25/b208c5683343959b670dc001595f2f3737e051da617f66c31f7c4fa93abc/rich-14.3.3-py3-none-any.whl", hash = "sha256:793431c1f8619afa7d3b52b2cdec859562b950ea0d4b6b505397612db8d5362d", size = 310458, upload-time = "2026-02-19T17:23:13.732Z" },
+]
+
+[[package]]
+name = "six"
+version = "1.17.0"
+source = { registry = "https://pypi.mirrors.ustc.edu.cn/simple/" }
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
+wheels = [
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
 ]
 
 [[package]]
