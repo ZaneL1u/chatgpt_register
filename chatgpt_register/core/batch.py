@@ -11,6 +11,7 @@ from pathlib import Path
 
 from chatgpt_register.adapters.mailcow import MailcowAdapter
 from chatgpt_register.config.model import RegisterConfig
+from chatgpt_register.core.archive import create_archive_dir, prepare_archive_paths
 from chatgpt_register.core.register import ChatGPTRegister
 from chatgpt_register.core.utils import generate_password, provider_display_name, random_birthdate, random_name
 from chatgpt_register.dashboard import RICH_AVAILABLE, RuntimeDashboard, route_print_to_dashboard
@@ -151,6 +152,25 @@ def run_batch(config: RegisterConfig):
     """并发批量注册，接收 RegisterConfig 实例作为唯一配置入口。"""
     import builtins
 
+    # --- 归档目录：所有结果文件写入 output/YYYYMMDD_HHMM/ ---
+    archive_dir = create_archive_dir()
+    archive_paths = prepare_archive_paths(
+        archive_dir,
+        output_file=config.registration.output_file,
+        ak_file=config.registration.ak_file,
+        rk_file=config.registration.rk_file,
+        token_json_dir=config.registration.token_json_dir,
+        log_file=config.registration.log_file,
+    )
+
+    # 创建 config 副本，重定向输出路径到归档目录
+    config = config.model_copy(deep=True)
+    config.registration.output_file = archive_paths["output_file"]
+    config.registration.ak_file = archive_paths["ak_file"]
+    config.registration.rk_file = archive_paths["rk_file"]
+    config.registration.token_json_dir = archive_paths["token_json_dir"]
+    config.registration.log_file = archive_paths["log_file"]
+
     total_accounts = config.registration.total_accounts
     output_file = config.registration.output_file
     log_file = config.registration.log_file
@@ -213,6 +233,7 @@ def run_batch(config: RegisterConfig):
                 print(f"  OAuth Client: {config.oauth.client_id}")
                 print(f"  Token输出: {config.registration.token_json_dir}/, {config.registration.ak_file}, {config.registration.rk_file}")
             print(f"  输出文件: {output_file}")
+            print(f"  归档目录: {archive_dir}")
             print(f"{'#'*60}\n")
 
             with ThreadPoolExecutor(max_workers=actual_workers) as executor:
@@ -254,7 +275,7 @@ def run_batch(config: RegisterConfig):
         print(f"  总数: {total_accounts} | 成功: {success_count} | 失败: {fail_count}")
         print(f"  平均速度: {avg:.1f} 秒/个")
         if success_count > 0:
-            print(f"  结果文件: {output_file}")
+            print(f"  归档目录: {archive_dir}")
         print(f"{'#'*60}")
 
         if log_file:
