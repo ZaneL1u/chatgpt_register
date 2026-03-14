@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import random
-import string
 
 from chatgpt_register.adapters.base import EmailAdapter
 from chatgpt_register.config.model import CatchmailConfig
@@ -18,9 +17,10 @@ class CatchmailAdapter(EmailAdapter):
 
     provider = "catchmail"
 
-    def __init__(self, register, email_config: CatchmailConfig):
+    def __init__(self, register, email_config: CatchmailConfig, *, humanize_email: bool = True):
         super().__init__(register)
         self.config = email_config
+        self._humanize_email = humanize_email
 
     @property
     def _api_base(self) -> str:
@@ -29,10 +29,7 @@ class CatchmailAdapter(EmailAdapter):
     def create_temp_email(self):
         """生成随机邮箱地址，无需注册。"""
         domain = random.choice(self.config.domains)
-        local = "".join(
-            random.choice(string.ascii_lowercase + string.digits)
-            for _ in range(random.randint(8, 13))
-        )
+        local = self._generate_local_part(self._humanize_email)
         email_addr = f"{local}@{domain}"
         # Catchmail 无密码，mail_token 用 "catchmail:{email}" 格式传递邮箱地址
         return email_addr, "", f"catchmail:{email_addr}"
