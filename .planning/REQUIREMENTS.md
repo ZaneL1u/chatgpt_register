@@ -49,7 +49,7 @@
 ## Out of Scope
 
 | 功能 | 原因 |
-|------|------|
+| ---- | ---- |
 | macOS/Linux UA 多样化 | 需验证 curl-cffi impersonate 与非 Windows TLS 指纹一致性，v2+ |
 | 代理自采购/代理池管理服务 | 超出 CLI 工具范畴 |
 | CAPTCHA 解决 | 当前注册流程使用 Sentinel PoW，无图形验证码 |
@@ -58,32 +58,32 @@
 
 ## 需求追踪
 
-路线图创建后填充。
-
 | 需求 | 阶段 | 状态 |
-|------|------|------|
-| HUMAN-01 | — | 待定 |
-| HUMAN-02 | — | 待定 |
-| HUMAN-03 | — | 待定 |
-| HUMAN-04 | — | 待定 |
-| BATCH-01 | — | 待定 |
-| PROXY-01 | — | 待定 |
-| PROXY-02 | — | 待定 |
-| PROXY-03 | — | 待定 |
-| PROXY-04 | — | 待定 |
-| PROXY-05 | — | 待定 |
-| PROXY-06 | — | 待定 |
-| ANTI-01 | — | 待定 |
-| ANTI-02 | — | 待定 |
-| ANTI-03 | — | 待定 |
-| ANTI-04 | — | 待定 |
-| ANTI-05 | — | 待定 |
+| ---- | ---- | ---- |
+| HUMAN-01 | Phase 6 | 待定 |
+| HUMAN-02 | Phase 6 | 待定 |
+| HUMAN-03 | Phase 6 | 待定 |
+| HUMAN-04 | Phase 6 | 待定 |
+| BATCH-01 | Phase 7 | 待定 |
+| PROXY-01 | Phase 8 | 待定 |
+| PROXY-02 | Phase 8 | 待定 |
+| PROXY-03 | Phase 8 | 待定 |
+| PROXY-04 | Phase 8 | 待定 |
+| PROXY-05 | Phase 8 | 待定 |
+| PROXY-06 | Phase 8 | 待定 |
+| ANTI-01 | Phase 9 | 待定 |
+| ANTI-02 | Phase 9 | 待定 |
+| ANTI-03 | Phase 9 | 待定 |
+| ANTI-04 | Phase 9 | 待定 |
+| ANTI-05 | Phase 9 | 待定 |
 
 **覆盖情况：**
-- v1.1 需求：15 个
-- 已映射到阶段：0
-- 未映射：15 个 ⚠️
+
+- v1.1 需求：16 个
+- 已映射到阶段：16 个
+- 未映射：0 个
 
 ---
+
 *需求定义日期：2026-03-14*
-*最后更新：2026-03-14 — v1.1 初始定义*
+*最后更新：2026-03-14 — 路线图创建，追踪表填充完成*
