@@ -123,3 +123,47 @@ def sample_mailtm_dict() -> dict:
 def tmp_profiles_dir(tmp_path: Path) -> Path:
     """临时目录，供 ProfileManager 测试使用"""
     return tmp_path / "profiles"
+
+
+@pytest.fixture
+def humanize_email_config_dict() -> dict:
+    """包含 humanize_email=True 的 catchmail 邮箱配置字典"""
+    return {
+        "email": {
+            "humanize_email": True,
+            "provider": "catchmail",
+            "catchmail": {
+                "api_base": "https://api.catchmail.io",
+                "domains": ["catchmail.io"],
+            },
+        },
+    }
+
+
+@pytest.fixture
+def no_humanize_email_config_dict() -> dict:
+    """包含 humanize_email=False 的 catchmail 邮箱配置字典"""
+    return {
+        "email": {
+            "humanize_email": False,
+            "provider": "catchmail",
+            "catchmail": {
+                "api_base": "https://api.catchmail.io",
+                "domains": ["catchmail.io"],
+            },
+        },
+    }
+
+
+@pytest.fixture
+def legacy_email_config_dict() -> dict:
+    """不含 humanize_email 字段的旧 profile 配置字典（测试向下兼容）"""
+    return {
+        "email": {
+            "provider": "catchmail",
+            "catchmail": {
+                "api_base": "https://api.catchmail.io",
+                "domains": ["catchmail.io"],
+            },
+        },
+    }
