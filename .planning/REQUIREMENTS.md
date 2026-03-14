@@ -7,10 +7,10 @@
 
 ### HUMAN — 邮箱拟人化
 
-- [ ] **HUMAN-01**：用户注册时使用真实人名+数字组合格式的邮箱前缀（如 `emma.wilson92@catchmail.io`），替代当前乱码前缀
-- [ ] **HUMAN-02**：系统能从多种前缀模板中生成邮箱前缀（`firstname.lastname`、`firstname_NNNN`、`firstnameNN` 等至少 3 种）
-- [ ] **HUMAN-03**：同一批次注册中，系统保证所有邮箱前缀不重复
-- [ ] **HUMAN-04**：用户能通过 `humanize_email` 配置项开启/关闭拟人化功能，旧 profile 向下兼容（默认关闭）
+- [x] **HUMAN-01**：用户注册时使用真实人名+数字组合格式的邮箱前缀（如 `emma.wilson92@catchmail.io`），替代当前乱码前缀
+- [x] **HUMAN-02**：系统能从多种前缀模板中生成邮箱前缀（`firstname.lastname`、`firstname_NNNN`、`firstnameNN` 等至少 3 种）
+- [x] **HUMAN-03**：同一批次注册中，系统保证所有邮箱前缀不重复
+- [x] **HUMAN-04**：用户能通过 `humanize_email` 配置项开启/关闭拟人化功能，旧 profile 向下兼容（默认关闭）
 
 ### BATCH — 批次输出归档
 
@@ -60,10 +60,10 @@
 
 | 需求 | 阶段 | 状态 |
 | ---- | ---- | ---- |
-| HUMAN-01 | Phase 6 | 待定 |
-| HUMAN-02 | Phase 6 | 待定 |
-| HUMAN-03 | Phase 6 | 待定 |
-| HUMAN-04 | Phase 6 | 待定 |
+| HUMAN-01 | Phase 6 | ✅ 完成 |
+| HUMAN-02 | Phase 6 | ✅ 完成 |
+| HUMAN-03 | Phase 6 | ✅ 完成 |
+| HUMAN-04 | Phase 6 | ✅ 完成 |
 | BATCH-01 | Phase 7 | 待定 |
 | PROXY-01 | Phase 8 | 待定 |
 | PROXY-02 | Phase 8 | 待定 |
