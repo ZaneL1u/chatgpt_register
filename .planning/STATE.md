@@ -1,32 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: TUI 化重构 MVP
-status: milestone_complete
-last_updated: "2026-03-08T23:10:00+08:00"
+milestone: v1.1
+milestone_name: 反风控增强
+status: defining_requirements
+last_updated: "2026-03-14T00:00:00+08:00"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-08)
+See: .planning/PROJECT.md (updated 2026-03-14)
 
 **Core value:** 用户通过交互式向导完成所有注册配置，无需手动编辑任何配置文件
-**Current focus:** v1.0 已完成，规划下一个里程碑
+**Current focus:** v1.1 反风控增强 — 定义需求中
 
 ## Current Position
 
-Milestone v1.0 shipped on 2026-03-08.
-All 5 phases, 10 plans, 18/18 requirements satisfied.
-
-Progress: [██████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-14 — Milestone v1.1 started
 
 ## Accumulated Context
 

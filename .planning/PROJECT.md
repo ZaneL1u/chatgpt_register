@@ -32,7 +32,15 @@ ChatGPT 批量自动注册 CLI 工具，支持多种临时邮箱适配器（Duck
 
 ### Active
 
-(下一个里程碑定义)
+#### Current Milestone: v1.1 反风控增强
+
+**Goal:** 提升批量注册的拟真度，降低被风控识别为机器人的概率
+
+**Target features:**
+- 邮箱名拟人化：真实人名 + 数字组合，替代乱码前缀
+- 批次输出归档：按年月日+时分目录组织输出结果
+- 多代理调度：支持配置多个 HTTP/SOCKS 代理，并发 worker 分配不同代理
+- 反机器人风险排查：梳理注册流程中可能被识别为机器人的环节并加固
 
 ### Out of Scope
 
@@ -72,4 +80,4 @@ ChatGPT 批量自动注册 CLI 工具，支持多种临时邮箱适配器（Duck
 | CLI 参数面精简 | 只保留 `--profile`、`--profiles-dir`、`--non-interactive`，业务配置一律回归 profile | ✓ Good |
 
 ---
-*Last updated: 2026-03-08 after v1.0 milestone*
+*Last updated: 2026-03-14 after v1.1 milestone started*
