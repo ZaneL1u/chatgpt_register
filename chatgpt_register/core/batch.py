@@ -198,10 +198,10 @@ def run_batch(config: RegisterConfig):
     # 旧 proxy 单字段迁移提示
     if config.registration.proxy and not config.registration.proxies:
         # model_validator 已完成迁移，此处只打印提示
-        pass
+        print(f"[迁移] 旧 proxy 字段已自动转换为 proxies 列表，建议更新 profile 配置")
     elif proxy_pool is not None and config.registration.proxy and config.registration.proxies:
-        # proxies 非空，proxy 字段被忽略（静默）
-        pass
+        # proxies 非空，proxy 字段被忽略
+        print(f"[提示] 检测到 proxy 和 proxies 同时存在，已忽略旧 proxy 字段")
 
     # 设置日志文件
     if log_file:

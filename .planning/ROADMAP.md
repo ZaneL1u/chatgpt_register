@@ -24,10 +24,10 @@
 
 **里程碑目标：** 提升批量注册的拟真度，通过邮箱名拟人化、多代理调度、批次归档、请求时序正态化四个维度降低被风控识别为机器人的概率
 
-- [ ] **Phase 6: 邮箱拟人化** — 配置模型扩展 + 邮箱前缀真人名生成，所有适配器改造
-- [ ] **Phase 7: 批次输出归档** — 按 `output/<YYYYMMDD_HHMM>/` 目录自动归档所有结果文件
-- [ ] **Phase 8: 多代理池调度** — proxies 多代理配置、round-robin 分配、向导多代理输入
-- [ ] **Phase 9: 反机器人加固** — 统一浏览器指纹、扩充 Chrome 版本池、正态延迟、stagger 启动
+- [x] **Phase 6: 邮箱拟人化** — 配置模型扩展 + 邮箱前缀真人名生成，所有适配器改造
+- [x] **Phase 7: 批次输出归档** — 按 `output/<YYYYMMDD_HHMM>/` 目录自动归档所有结果文件
+- [x] **Phase 8: 多代理池调度** — proxies 多代理配置、round-robin 分配、向导多代理输入
+- [x] **Phase 9: 反机器人加固** — 统一浏览器指纹、扩充 Chrome 版本池、正态延迟、stagger 启动
 
 ## Phase Details
 
@@ -46,7 +46,7 @@
 3. 系统能生成至少 3 种不同格式的邮箱前缀（如 `firstname.lastname`、`firstname_NNNN`、`firstnameNN`）
 4. 不设置 `humanize_email` 字段的旧 profile 加载后正常运行，行为与之前一致（默认关闭）
 
-**Plans**: TBD
+**Plans**: 3/3 complete
 
 ### Phase 7: 批次输出归档
 
@@ -62,7 +62,7 @@
 2. tokens、ak、rk、token json 全部写入该归档子目录，不再追加到同一文件
 3. 多次运行产生多个独立归档目录，历史结果不被覆盖
 
-**Plans**: TBD
+**Plans**: 3/3 complete
 
 ### Phase 8: 多代理池调度
 
@@ -79,7 +79,7 @@
 3. 含旧 `proxy` 单字段的 profile 加载后自动转换为 `proxies` 列表，无需用户手动修改
 4. 向导中可逐行输入多个代理地址、从文件导入，也可只输入单个代理（向下兼容）
 
-**Plans**: TBD
+**Plans**: 3/3 complete
 
 ### Phase 9: 反机器人加固
 
@@ -97,7 +97,7 @@
 4. 注册过程中的请求延迟不再是均匀分布，OTP 等待等高延迟场景与普通步骤使用不同正态参数（可通过调试日志验证延迟分布形态）
 5. 多 worker 并发启动时，各 worker 实际开始时间错开 2-8 秒，不再同步启动（可通过日志时间戳观察）
 
-**Plans**: TBD
+**Plans**: 3/3 complete
 
 ## Progress
 
@@ -108,7 +108,7 @@
 | 3. TUI 配置向导 | v1.0 | 2/2 | Complete | 2026-03-08 |
 | 4. CLI 集成与 Profile 管理 | v1.0 | 3/3 | Complete | 2026-03-08 |
 | 5. Phase 4 验收闭环 | v1.0 | 1/1 | Complete | 2026-03-08 |
-| 6. 邮箱拟人化 | v1.1 | 0/TBD | Not started | - |
-| 7. 批次输出归档 | v1.1 | 0/TBD | Not started | - |
-| 8. 多代理池调度 | v1.1 | 0/TBD | Not started | - |
-| 9. 反机器人加固 | v1.1 | 0/TBD | Not started | - |
+| 6. 邮箱拟人化 | v1.1 | 3/3 | Complete | 2026-03-15 |
+| 7. 批次输出归档 | v1.1 | 3/3 | Complete | 2026-03-15 |
+| 8. 多代理池调度 | v1.1 | 3/3 | Complete | 2026-03-15 |
+| 9. 反机器人加固 | v1.1 | 3/3 | Complete | 2026-03-15 |

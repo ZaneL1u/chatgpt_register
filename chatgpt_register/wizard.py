@@ -193,6 +193,15 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
     provider_key = _provider_key_map.get(provider, provider.lower().replace(".", ""))
     provider_prefill = prefill.get(provider_key) or {}
 
+    # 邮箱拟人化开关
+    humanize = questionary.confirm(
+        "启用邮箱前缀拟人化（生成真人名格式前缀）?",
+        default=prefill.get("humanize_email", True),
+    ).ask()
+
+    if humanize is None:
+        return None
+
     if provider == "DuckMail":
         api_base = questionary.text(
             "DuckMail API Base",
@@ -208,6 +217,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
             return None
 
         return {
+            "humanize_email": humanize,
             "provider": "duckmail",
             "duckmail": {"api_base": _ensure_scheme(api_base), "bearer": bearer},
         }
@@ -251,6 +261,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
             mailcow_config["imap_host"] = imap_host
 
         return {
+            "humanize_email": humanize,
             "provider": "mailcow",
             "mailcow": mailcow_config,
         }
@@ -289,6 +300,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
                 selected_domains = all_domains  # 未选则默认全选
 
             return {
+                "humanize_email": humanize,
                 "provider": "catchmail",
                 "catchmail": {
                     "api_base": _ensure_scheme(api_base),
@@ -306,6 +318,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
                 return None
 
             return {
+                "humanize_email": humanize,
                 "provider": "maildrop",
                 "maildrop": {"api_base": _ensure_scheme(api_base)},
             }
@@ -320,6 +333,7 @@ def _ask_email_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
                 return None
 
             return {
+                "humanize_email": humanize,
                 "provider": "mailtm",
                 "mailtm": {"api_base": _ensure_scheme(api_base)},
             }

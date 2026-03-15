@@ -18,20 +18,20 @@
 
 ### PROXY — 多代理调度
 
-- [ ] **PROXY-01**：用户能在配置中指定多个代理地址（新增 `proxies: list[str]` 字段）
-- [ ] **PROXY-02**：`proxies` 字段支持 SOCKS5、SOCKS4、HTTP 混合格式（`socks5://user:pass@host:port`）
-- [ ] **PROXY-03**：系统以 round-robin 策略将代理分配给并发 worker
-- [ ] **PROXY-04**：同一 worker 在整个注册任务周期内绑定同一代理，不在任务中途切换
-- [ ] **PROXY-05**：旧 `proxy` 单字段 profile 能自动迁移到新 `proxies` 列表，无需用户修改
-- [ ] **PROXY-06**：向导支持多代理输入（逐行输入 / 从文件导入 / 单代理向下兼容）
+- [x] **PROXY-01**：用户能在配置中指定多个代理地址（新增 `proxies: list[str]` 字段）
+- [x] **PROXY-02**：`proxies` 字段支持 SOCKS5、SOCKS4、HTTP 混合格式（`socks5://user:pass@host:port`）
+- [x] **PROXY-03**：系统以 round-robin 策略将代理分配给并发 worker
+- [x] **PROXY-04**：同一 worker 在整个注册任务周期内绑定同一代理，不在任务中途切换
+- [x] **PROXY-05**：旧 `proxy` 单字段 profile 能自动迁移到新 `proxies` 列表，无需用户修改
+- [x] **PROXY-06**：向导支持多代理输入（逐行输入 / 从文件导入 / 单代理向下兼容）
 
 ### ANTI — 反机器人加固
 
-- [ ] **ANTI-01**：修复 `SentinelTokenGenerator` 默认 UA `Chrome/145.0.0.0` 与 `CHROME_PROFILES` 不一致的潜伏 bug
-- [ ] **ANTI-02**：统一 `BrowserProfile` 数据类，`register.py` 和 `sentinel.py` 均从同一数据源读取浏览器标识，消除两处独立维护
-- [ ] **ANTI-03**：`CHROME_PROFILES` 扩充到 8-12 个 Chrome 版本，每次注册随机选取
-- [ ] **ANTI-04**：请求延迟从均匀分布 `U(0.3, 0.8)` 改为场景化正态分布（`random.gauss()`），OTP 等待等高延迟场景单独调参
-- [ ] **ANTI-05**：`run_batch()` 中并发 worker 启动引入 2-8s 随机错开延迟，避免所有 worker 同步启动
+- [x] **ANTI-01**：修复 `SentinelTokenGenerator` 默认 UA `Chrome/145.0.0.0` 与 `CHROME_PROFILES` 不一致的潜伏 bug
+- [x] **ANTI-02**：统一 `BrowserProfile` 数据类，`register.py` 和 `sentinel.py` 均从同一数据源读取浏览器标识，消除两处独立维护
+- [x] **ANTI-03**：`CHROME_PROFILES` 扩充到 8-12 个 Chrome 版本，每次注册随机选取
+- [x] **ANTI-04**：请求延迟从均匀分布 `U(0.3, 0.8)` 改为场景化正态分布（`random.gauss()`），OTP 等待等高延迟场景单独调参
+- [x] **ANTI-05**：`run_batch()` 中并发 worker 启动引入 2-8s 随机错开延迟，避免所有 worker 同步启动
 
 ## v1.2 需求（延后）
 
@@ -65,17 +65,17 @@
 | HUMAN-03 | Phase 6 | ✅ 完成 |
 | HUMAN-04 | Phase 6 | ✅ 完成 |
 | BATCH-01 | Phase 7 | :white_check_mark: 完成 |
-| PROXY-01 | Phase 8 | 待定 |
-| PROXY-02 | Phase 8 | 待定 |
-| PROXY-03 | Phase 8 | 待定 |
-| PROXY-04 | Phase 8 | 待定 |
-| PROXY-05 | Phase 8 | 待定 |
-| PROXY-06 | Phase 8 | 待定 |
-| ANTI-01 | Phase 9 | 待定 |
-| ANTI-02 | Phase 9 | 待定 |
-| ANTI-03 | Phase 9 | 待定 |
-| ANTI-04 | Phase 9 | 待定 |
-| ANTI-05 | Phase 9 | 待定 |
+| PROXY-01 | Phase 8 | ✅ 完成 |
+| PROXY-02 | Phase 8 | ✅ 完成 |
+| PROXY-03 | Phase 8 | ✅ 完成 |
+| PROXY-04 | Phase 8 | ✅ 完成 |
+| PROXY-05 | Phase 8 | ✅ 完成 |
+| PROXY-06 | Phase 8 | ✅ 完成 |
+| ANTI-01 | Phase 9 | ✅ 完成 |
+| ANTI-02 | Phase 9 | ✅ 完成 |
+| ANTI-03 | Phase 9 | ✅ 完成 |
+| ANTI-04 | Phase 9 | ✅ 完成 |
+| ANTI-05 | Phase 9 | ✅ 完成 |
 
 **覆盖情况：**
 
@@ -86,4 +86,4 @@
 ---
 
 *需求定义日期：2026-03-14*
-*最后更新：2026-03-14 — 路线图创建，追踪表填充完成*
+*最后更新：2026-03-15 — 全部 16 需求已完成，追踪表同步审计结果*
