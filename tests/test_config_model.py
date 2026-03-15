@@ -331,3 +331,96 @@ class TestFormatting:
         email_section = dumped["email"]
         assert "mailcow" not in email_section
         assert "mailtm" not in email_section
+
+
+class TestProxiesField:
+    """测试 proxies 字段和 proxy -> proxies 迁移"""
+
+    def test_proxies_field_default(self) -> None:
+        """proxies 默认为空列表"""
+        data = {
+            "email": {
+                "provider": "mailtm",
+                "mailtm": {"api_base": "https://api.mail.tm"},
+            },
+        }
+        config = RegisterConfig.model_validate(data)
+        assert config.registration.proxies == []
+
+    def test_proxy_migration(self) -> None:
+        """proxy 非空且 proxies 为空时，自动迁移到 proxies"""
+        data = {
+            "email": {
+                "provider": "mailtm",
+                "mailtm": {"api_base": "https://api.mail.tm"},
+            },
+            "registration": {
+                "proxy": "http://host:8080",
+            },
+        }
+        config = RegisterConfig.model_validate(data)
+        assert config.registration.proxies == ["http://host:8080"]
+
+    def test_proxies_priority(self) -> None:
+        """proxies 非空时，proxy 字段不覆盖 proxies"""
+        data = {
+            "email": {
+                "provider": "mailtm",
+                "mailtm": {"api_base": "https://api.mail.tm"},
+            },
+            "registration": {
+                "proxy": "http://old:8080",
+                "proxies": ["socks5://new:1080"],
+            },
+        }
+        config = RegisterConfig.model_validate(data)
+        assert config.registration.proxies == ["socks5://new:1080"]
+
+    def test_proxies_mixed_formats(self) -> None:
+        """支持混合格式代理列表"""
+        data = {
+            "email": {
+                "provider": "mailtm",
+                "mailtm": {"api_base": "https://api.mail.tm"},
+            },
+            "registration": {
+                "proxies": [
+                    "socks5://user:pass@host:1080",
+                    "http://host:8080",
+                    "socks4://host:1081",
+                ],
+            },
+        }
+        config = RegisterConfig.model_validate(data)
+        assert len(config.registration.proxies) == 3
+
+    def test_proxies_toml_roundtrip(self, tmp_path) -> None:
+        """proxies 保存到 TOML 后可正确重新加载"""
+        from chatgpt_register.config.profile import ProfileManager
+
+        data = {
+            "email": {
+                "provider": "mailtm",
+                "mailtm": {"api_base": "https://api.mail.tm"},
+            },
+            "registration": {
+                "proxies": ["socks5://h:1080", "http://h:8080"],
+            },
+        }
+        config = RegisterConfig.model_validate(data)
+        pm = ProfileManager(base_dir=tmp_path)
+        pm.save("test-proxy", config)
+        loaded = pm.load("test-proxy")
+        assert loaded.registration.proxies == ["socks5://h:1080", "http://h:8080"]
+
+    def test_both_empty_no_migration(self) -> None:
+        """proxy 和 proxies 均为空时不触发迁移"""
+        data = {
+            "email": {
+                "provider": "mailtm",
+                "mailtm": {"api_base": "https://api.mail.tm"},
+            },
+        }
+        config = RegisterConfig.model_validate(data)
+        assert config.registration.proxy == ""
+        assert config.registration.proxies == []

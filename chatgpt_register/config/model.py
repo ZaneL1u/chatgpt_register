@@ -171,11 +171,19 @@ class RegConfig(BaseModel):
     total_accounts: int = Field(default=5, ge=1, description="注册账号数量")
     workers: int = Field(default=3, ge=1, description="并发数")
     proxy: str = ""
+    proxies: list[str] = Field(default_factory=list, description="代理地址列表")
     output_file: str = "registered_accounts.txt"
     ak_file: str = "ak.txt"
     rk_file: str = "rk.txt"
     token_json_dir: str = "codex_tokens"
     log_file: str = ""
+
+    @model_validator(mode="after")
+    def migrate_proxy_to_proxies(self) -> RegConfig:
+        """旧 proxy 单字段自动迁移到 proxies 列表（内存级，不写回文件）。"""
+        if self.proxy and not self.proxies:
+            self.proxies = [self.proxy]
+        return self
 
 
 # ---------------------------------------------------------------------------
