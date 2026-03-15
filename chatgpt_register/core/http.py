@@ -8,38 +8,89 @@ import random
 import secrets
 import time
 import uuid
+from dataclasses import dataclass
+
+
+# ---------------------------------------------------------------------------
+# BrowserProfile — 统一浏览器指纹数据结构
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class BrowserProfile:
+    """统一浏览器指纹数据结构，由 random_chrome_version() 生成。"""
+
+    impersonate: str
+    chrome_major: int
+    chrome_full: str
+    user_agent: str
+    sec_ch_ua: str
 
 
 # ---------------------------------------------------------------------------
 # Chrome 指纹配置: impersonate 与 sec-ch-ua 必须匹配真实浏览器
+# 每个 impersonate 值对应 2-3 个不同 patch 范围的条目，总计 10 个 profile
 # ---------------------------------------------------------------------------
 
 CHROME_PROFILES = [
+    # chrome131 系列（2 个 profile）
     {
         "major": 131, "impersonate": "chrome131",
-        "build": 6778, "patch_range": (69, 205),
+        "build": 6778, "patch_range": (69, 140),
         "sec_ch_ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
     },
     {
+        "major": 131, "impersonate": "chrome131",
+        "build": 6778, "patch_range": (141, 205),
+        "sec_ch_ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    },
+    # chrome133a 系列（3 个 profile）
+    {
         "major": 133, "impersonate": "chrome133a",
-        "build": 6943, "patch_range": (33, 153),
+        "build": 6943, "patch_range": (33, 100),
         "sec_ch_ua": '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
     },
     {
+        "major": 133, "impersonate": "chrome133a",
+        "build": 6943, "patch_range": (101, 200),
+        "sec_ch_ua": '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+    },
+    {
+        "major": 133, "impersonate": "chrome133a",
+        "build": 6943, "patch_range": (201, 300),
+        "sec_ch_ua": '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+    },
+    # chrome136 系列（3 个 profile）
+    {
         "major": 136, "impersonate": "chrome136",
-        "build": 7103, "patch_range": (48, 175),
+        "build": 7103, "patch_range": (48, 100),
         "sec_ch_ua": '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
     },
     {
+        "major": 136, "impersonate": "chrome136",
+        "build": 7103, "patch_range": (101, 175),
+        "sec_ch_ua": '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+    },
+    {
+        "major": 136, "impersonate": "chrome136",
+        "build": 7103, "patch_range": (176, 250),
+        "sec_ch_ua": '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+    },
+    # chrome142 系列（2 个 profile）
+    {
         "major": 142, "impersonate": "chrome142",
-        "build": 7540, "patch_range": (30, 150),
+        "build": 7540, "patch_range": (30, 90),
+        "sec_ch_ua": '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+    },
+    {
+        "major": 142, "impersonate": "chrome142",
+        "build": 7540, "patch_range": (91, 150),
         "sec_ch_ua": '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
     },
 ]
 
 
-def random_chrome_version():
-    """返回 (impersonate, major, full_ver, ua, sec_ch_ua)。"""
+def random_chrome_version() -> BrowserProfile:
+    """随机选取 Chrome profile，返回 BrowserProfile 实例。"""
     profile = random.choice(CHROME_PROFILES)
     major = profile["major"]
     build = profile["build"]
@@ -50,7 +101,13 @@ def random_chrome_version():
         f"AppleWebKit/537.36 (KHTML, like Gecko) "
         f"Chrome/{full_ver} Safari/537.36"
     )
-    return profile["impersonate"], major, full_ver, ua, profile["sec_ch_ua"]
+    return BrowserProfile(
+        impersonate=profile["impersonate"],
+        chrome_major=major,
+        chrome_full=full_ver,
+        user_agent=ua,
+        sec_ch_ua=profile["sec_ch_ua"],
+    )
 
 
 def random_delay(low: float = 0.3, high: float = 1.0) -> None:
