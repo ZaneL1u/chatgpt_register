@@ -50,6 +50,52 @@
 
 ---
 
+## Milestone: v1.1 — 反风控增强
+
+**Shipped:** 2026-03-15
+**Phases:** 4 | **Plans:** 10
+
+### What Was Built
+
+- HumanizedPrefixGenerator：4 种人名格式邮箱前缀，集成 catchmail/maildrop 适配器
+- 批次输出归档模块：output/<YYYYMMDD_HHMM>/ 自动归档 + config.model_copy 路径重定向
+- ProxyPool 线程安全负载均衡 + proxy_parser 多协议解析 + 向导 4 种输入模式
+- BrowserProfile frozen dataclass + 10 个 Chrome 版本，统一 register/sentinel 指纹来源
+- 场景化正态延迟 random_delay() + Worker 启动 gauss(5.0, 1.5) clamp 2-8s 错开
+
+### What Worked
+
+- **配置模型先行**：Phase 6 先扩展 EmailConfig.humanize_email，Phase 8 先扩展 proxies 字段，后续集成自然顺畅
+- **VERIFICATION.md 同步产出**：吸取 v1.0 教训，每阶段执行完毕立即验证，里程碑审计零 orphan 需求
+- **config.model_copy 重定向模式**：归档集成只需深拷贝 config 修改路径，下游代码零改动，Phase 7 整阶段仅 1 plan
+- **min-load 替代 round-robin**：代理分配在不均匀耗时场景下更均匀，是对需求的改进而非偏离
+
+### What Was Inefficient
+
+- **SUMMARY frontmatter 未填充**：Phase 6/8/9 的 SUMMARY.md `requirements_completed` 字段为空，导致审计时需要三源交叉验证才能确认覆盖
+- **适配器拟人化范围界定晚**：Phase 6 设计时未显式声明「仅 catchmail/maildrop」，审计时才发现 DuckMail/Mailcow/MailTm 未接入，记为技术债务
+
+### Patterns Established
+
+- config.model_copy(deep=True) 路径重定向是非侵入式模块集成的有效模式
+- BrowserProfile frozen dataclass 消除了多模块间浏览器信息的双维护
+- ProxyPool 借出/归还模式适合并发 worker 资源管理
+
+### Key Lessons
+
+1. SUMMARY.md frontmatter 是审计自动化的关键数据源，必须在计划完成时完整填充
+2. 功能范围（如「哪些适配器接入」）应在需求阶段显式界定，而非在审计时才发现缺口
+3. 正态分布延迟比均匀分布更接近真实用户行为，是反风控的有效策略
+
+### Cost Observations
+
+- 总执行时间: ~4 phases, 10 plans
+- 最快 phase: Phase 7（1 plan，纯模块+集成）
+- 最复杂 phase: Phase 8（3 plans，含 ProxyPool 线程安全 + 向导多模式）
+- 测试: 从 70 增长到 141（+71 个测试）
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -57,14 +103,18 @@
 | Milestone | Phases | Plans | Key Change |
 | --------- | ------ | ----- | ---------- |
 | v1.0 | 5 | 10 | 初始里程碑，建立 TDD + 配置驱动架构模式 |
+| v1.1 | 4 | 10 | 反风控增强，VERIFICATION 同步产出，config.model_copy 重定向模式 |
 
 ### Cumulative Quality
 
 | Milestone | Tests | Key Metric |
 | --------- | ----- | ---------- |
 | v1.0 | 70 | 18/18 需求全部验收通过 |
+| v1.1 | 141 | 16/16 需求全部验收通过，5 项非关键技术债务 |
 
 ### Top Lessons (Verified Across Milestones)
 
-1. 阶段级验收文件应与执行同步产出，不应延迟
+1. 阶段级验收文件应与执行同步产出，不应延迟（v1.0 教训，v1.1 已修正）
 2. 框架选型需优先验证测试基础设施兼容性
+3. SUMMARY.md frontmatter 是审计自动化的关键数据源，必须完整填充
+4. 功能范围应在需求阶段显式界定，而非审计时才发现缺口
