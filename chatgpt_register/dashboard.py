@@ -26,6 +26,24 @@ except Exception:
 _ORIGINAL_PRINT = builtins.print
 
 
+def _truncate_proxy(proxy: str, max_len: int = 30) -> str:
+    """脱敏截断代理地址用于 Dashboard 显示。"""
+    if not proxy:
+        return "直连"
+    from urllib.parse import urlparse
+
+    parsed = urlparse(proxy)
+    if parsed.username:
+        # 隐藏认证信息
+        host_part = f"{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname
+        display = f"{parsed.scheme}://***@{host_part}"
+    else:
+        display = proxy
+    if len(display) > max_len:
+        return display[:max_len] + "..."
+    return display
+
+
 class RuntimeDashboard:
     def __init__(self, total_accounts: int, max_workers: int, provider_name: str):
         self.total_accounts = max(1, int(total_accounts))
@@ -62,7 +80,7 @@ class RuntimeDashboard:
                 self._live.stop()
                 self._live = None
 
-    def register_worker(self, worker_id: int, tag: str = ""):
+    def register_worker(self, worker_id: int, tag: str = "", proxy: str = ""):
         with self._lock:
             item = self.worker_states.get(worker_id)
             if item is None:
@@ -71,6 +89,7 @@ class RuntimeDashboard:
                     "status": "等待开始",
                     "done": False,
                     "result": "进行中",
+                    "proxy": _truncate_proxy(proxy),
                 }
                 self.worker_states[worker_id] = item
             else:
@@ -78,6 +97,8 @@ class RuntimeDashboard:
                     item["tag"] = tag
                 item["done"] = False
                 item["result"] = "进行中"
+                if proxy:
+                    item["proxy"] = _truncate_proxy(proxy)
             self._refresh()
 
     def update_worker(self, worker_id: int, status: str, tag: str = ""):
@@ -159,6 +180,7 @@ class RuntimeDashboard:
     def _build_workers_panel(self):
         table = Table(box=box.SIMPLE_HEAVY, expand=True, show_header=True)
         table.add_column("任务", no_wrap=True, width=12)
+        table.add_column("代理", no_wrap=True, width=20)
         table.add_column("当前动作")
         table.add_column("结果", no_wrap=True, width=8, justify="center")
 
@@ -167,15 +189,16 @@ class RuntimeDashboard:
             key=lambda kv: (1 if kv[1].get("done") else 0, kv[0]),
         )
         if not items:
-            table.add_row("-", "等待任务启动", "-")
+            table.add_row("-", "-", "等待任务启动", "-")
         else:
             display_items = items[:12]
             for worker_id, item in display_items:
                 status = item.get("status") or "处理中"
                 result = item.get("result") or "进行中"
+                proxy_display = item.get("proxy") or "直连"
                 style = "green" if result == "成功" else ("red" if result == "失败" else "yellow")
                 tag = item.get("tag") or f"任务-{worker_id}"
-                table.add_row(tag, status, f"[{style}]{result}[/{style}]")
+                table.add_row(tag, proxy_display, status, f"[{style}]{result}[/{style}]")
         return Panel(table, title="并发任务状态", border_style="blue")
 
     def _build_logs_panel(self):

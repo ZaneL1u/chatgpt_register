@@ -12,6 +12,7 @@ from pathlib import Path
 from chatgpt_register.adapters.mailcow import MailcowAdapter
 from chatgpt_register.config.model import RegisterConfig
 from chatgpt_register.core.archive import create_archive_dir, prepare_archive_paths
+from chatgpt_register.core.proxy_pool import ProxyPool
 from chatgpt_register.core.register import ChatGPTRegister
 from chatgpt_register.core.utils import generate_password, provider_display_name, random_birthdate, random_name
 from chatgpt_register.dashboard import RICH_AVAILABLE, RuntimeDashboard, route_print_to_dashboard
@@ -58,17 +59,24 @@ def _email_provider_endpoint_hint(config: RegisterConfig) -> str:
     return ""
 
 
-def _register_one(idx, total, config: RegisterConfig, output_file: str, print_lock, file_lock, dashboard=None):
+def _register_one(idx, total, config: RegisterConfig, output_file: str, print_lock, file_lock, dashboard=None, proxy_pool=None):
     reg = None
     mailcow_email = None
+    proxy = None
+
+    # 从代理池获取代理（如果有池），否则使用配置中的单代理
+    if proxy_pool is not None:
+        proxy = proxy_pool.acquire()
+    else:
+        proxy = config.registration.proxy or None
 
     if dashboard is not None:
-        dashboard.register_worker(idx, tag=f"任务-{idx}")
+        dashboard.register_worker(idx, tag=f"任务-{idx}", proxy=proxy or "")
 
     try:
         reg = ChatGPTRegister(
             config=config,
-            proxy=config.registration.proxy or None,
+            proxy=proxy,
             tag=f"{idx}",
             worker_id=idx,
             dashboard=dashboard,
@@ -135,6 +143,10 @@ def _register_one(idx, total, config: RegisterConfig, output_file: str, print_lo
         return False, None, error_msg
 
     finally:
+        # 释放代理回池（必须在 finally 中确保异常退出也释放）
+        if proxy_pool is not None and proxy is not None:
+            proxy_pool.release(proxy)
+
         if mailcow_email and reg is not None and isinstance(reg.email_adapter, MailcowAdapter):
             try:
                 ok = reg.email_adapter.delete_mailbox(mailcow_email)
@@ -177,6 +189,18 @@ def run_batch(config: RegisterConfig):
     max_workers = config.registration.workers
     actual_workers = min(max_workers, total_accounts)
     provider_name = provider_display_name(config.email.provider)
+
+    # 构建代理池
+    effective_proxies = config.registration.proxies
+    proxy_pool = ProxyPool(effective_proxies) if effective_proxies else None
+
+    # 旧 proxy 单字段迁移提示
+    if config.registration.proxy and not config.registration.proxies:
+        # model_validator 已完成迁移，此处只打印提示
+        pass
+    elif proxy_pool is not None and config.registration.proxy and config.registration.proxies:
+        # proxies 非空，proxy 字段被忽略（静默）
+        pass
 
     # 设置日志文件
     if log_file:
@@ -234,13 +258,19 @@ def run_batch(config: RegisterConfig):
                 print(f"  Token输出: {config.registration.token_json_dir}/, {config.registration.ak_file}, {config.registration.rk_file}")
             print(f"  输出文件: {output_file}")
             print(f"  归档目录: {archive_dir}")
+            if proxy_pool is not None:
+                print(f"  代理池: {len(proxy_pool)} 个代理")
+            elif config.registration.proxy:
+                print(f"  代理: {config.registration.proxy}")
+            else:
+                print(f"  代理: 直连（未配置代理）")
             print(f"{'#'*60}\n")
 
             with ThreadPoolExecutor(max_workers=actual_workers) as executor:
                 futures = {}
                 for idx in range(1, total_accounts + 1):
                     future = executor.submit(
-                        _register_one, idx, total_accounts, config, output_file, _print_lock, _file_lock, dashboard
+                        _register_one, idx, total_accounts, config, output_file, _print_lock, _file_lock, dashboard, proxy_pool
                     )
                     futures[future] = idx
 
