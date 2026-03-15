@@ -9,6 +9,7 @@ from rich.console import Console
 
 from chatgpt_register.config.model import RegisterConfig
 from chatgpt_register.config.profile import ProfileManager
+from chatgpt_register.core.proxy_parser import parse_proxies, parse_proxies_from_file, parse_proxy, summarize_proxies
 from chatgpt_register.core.utils import provider_display_name
 
 console = Console()
@@ -124,7 +125,7 @@ def _create_new_config(
         return None
 
     # 4. 上传配置
-    upload_config = _ask_upload_config(prefill.get("upload", {}), reg_config.get("proxy", ""))
+    upload_config = _ask_upload_config(prefill.get("upload", {}), reg_config.get("proxy", "") or (reg_config.get("proxies", []) or [""])[0])
     if upload_config is None:
         return None
 
@@ -338,12 +339,9 @@ def _ask_registration_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
         validate=lambda x: x.isdigit() and int(x) > 0,
     ).ask()
 
-    proxy = questionary.text(
-        "代理地址 (留空跳过)",
-        default=prefill.get("proxy", ""),
-    ).ask()
+    proxies_result = _ask_proxies(prefill.get("proxies", []))
 
-    if None in (total_accounts, workers, proxy):
+    if None in (total_accounts, workers) or proxies_result is None:
         return None
 
     # 日志文件
@@ -368,13 +366,96 @@ def _ask_registration_config(prefill: dict[str, Any]) -> dict[str, Any] | None:
     return {
         "total_accounts": int(total_accounts),
         "workers": int(workers),
-        "proxy": proxy.strip(),
+        "proxy": proxies_result[0] if proxies_result else "",
+        "proxies": proxies_result,
         "output_file": prefill.get("output_file", "registered_accounts.txt"),
         "ak_file": prefill.get("ak_file", "ak.txt"),
         "rk_file": prefill.get("rk_file", "rk.txt"),
         "token_json_dir": prefill.get("token_json_dir", "codex_tokens"),
         "log_file": log_file,
     }
+
+
+def _ask_proxies(prefill: list[str]) -> list[str] | None:
+    """询问代理配置，支持单代理、多行、文件导入、跳过四种模式。"""
+    if prefill:
+        console.print(f"  当前代理: {summarize_proxies(prefill)}")
+
+    mode = questionary.select(
+        "代理配置方式",
+        choices=[
+            "单个代理 (直接输入地址)",
+            "多个代理 (逐行输入)",
+            "从文件导入 (.txt)",
+            "不使用代理",
+        ],
+    ).ask()
+
+    if mode is None:
+        return None
+
+    if "不使用" in mode:
+        return []
+
+    if "单个" in mode:
+        default = prefill[0] if prefill else ""
+        addr = questionary.text(
+            "代理地址 (如 socks5://host:port)",
+            default=default,
+        ).ask()
+        if addr is None:
+            return None
+        addr = addr.strip()
+        if not addr:
+            return []
+        parsed = parse_proxy(addr)
+        if parsed is None:
+            console.print(f"  [yellow]无效代理地址: {addr}[/yellow]")
+            return []
+        console.print(f"  [green]✓[/green] {summarize_proxies([parsed])}")
+        return [parsed]
+
+    if "文件" in mode:
+        path = questionary.text(
+            "代理列表文件路径 (.txt)",
+        ).ask()
+        if path is None:
+            return None
+        path = path.strip()
+        if not path:
+            return []
+        try:
+            valid, warnings = parse_proxies_from_file(path)
+        except FileNotFoundError:
+            console.print(f"  [red]文件不存在: {path}[/red]")
+            return []
+        for w in warnings:
+            console.print(f"  [yellow]{w}[/yellow]")
+        if valid:
+            console.print(f"  [green]✓[/green] {summarize_proxies(valid)}")
+        else:
+            console.print("  [yellow]未解析到有效代理[/yellow]")
+        return valid
+
+    # 多行输入
+    console.print("  逐行输入代理地址，空行结束:")
+    lines: list[str] = []
+    while True:
+        line = questionary.text("", default="").ask()
+        if line is None:
+            return None
+        if not line.strip():
+            break
+        lines.append(line)
+
+    valid, warnings = parse_proxies(lines)
+    for w in warnings:
+        console.print(f"  [yellow]{w}[/yellow]")
+    if valid:
+        console.print(f"  [green]✓[/green] {summarize_proxies(valid)}")
+    else:
+        console.print("  [yellow]未解析到有效代理[/yellow]")
+    return valid
 
 
 def _ask_upload_config(prefill: dict[str, Any], proxy: str) -> dict[str, Any] | None:
