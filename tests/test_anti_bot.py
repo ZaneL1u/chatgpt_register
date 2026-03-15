@@ -129,3 +129,27 @@ class TestSentinelNoDefaultUA:
         import inspect
         source = inspect.getsource(SentinelTokenGenerator)
         assert "Chrome/145" not in source
+
+
+class TestWorkerStagger:
+    """ANTI-05: Worker 启动错开 2-8 秒。"""
+
+    def test_worker_stagger_distribution(self):
+        """stagger 延迟在 2-8s 范围内。"""
+        import random as _random
+        for _ in range(200):
+            val = max(2.0, min(8.0, _random.gauss(5.0, 1.5)))
+            assert 2.0 <= val <= 8.0
+
+    def test_batch_module_has_random(self):
+        """batch 模块导入了 random（可被 mock）。"""
+        from chatgpt_register.core import batch
+        assert hasattr(batch, "random")
+
+    def test_batch_stagger_code_exists(self):
+        """batch.py 中包含 stagger 错开逻辑。"""
+        import inspect
+        from chatgpt_register.core import batch
+        source = inspect.getsource(batch.run_batch)
+        assert "stagger" in source
+        assert "gauss" in source

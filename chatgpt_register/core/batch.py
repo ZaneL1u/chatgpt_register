@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 import sys
 import threading
 import time
@@ -273,6 +274,11 @@ def run_batch(config: RegisterConfig):
                         _register_one, idx, total_accounts, config, output_file, _print_lock, _file_lock, dashboard, proxy_pool
                     )
                     futures[future] = idx
+                    # 错开启动：第一个立即启动，后续 worker 间隔 2-8s（正态分布）
+                    if idx < total_accounts:
+                        stagger = max(2.0, min(8.0, random.gauss(5.0, 1.5)))
+                        print(f"  ◆ Worker {idx} 已提交，等待 {stagger:.1f}s 后提交下一个...")
+                        time.sleep(stagger)
 
                 for future in as_completed(futures):
                     idx = futures[future]
