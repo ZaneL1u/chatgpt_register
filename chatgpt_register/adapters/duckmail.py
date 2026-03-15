@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import random
-import string
 import time
 
 from chatgpt_register.adapters.base import EmailAdapter
@@ -14,9 +12,10 @@ from chatgpt_register.core.utils import generate_password
 class DuckMailAdapter(EmailAdapter):
     provider = "duckmail"
 
-    def __init__(self, register, email_config: DuckMailConfig):
+    def __init__(self, register, email_config: DuckMailConfig, *, humanize_email: bool = True):
         super().__init__(register)
         self.config = email_config
+        self._humanize_email = humanize_email
 
     @property
     def _api_base(self) -> str:
@@ -30,8 +29,7 @@ class DuckMailAdapter(EmailAdapter):
         if not self._bearer:
             raise Exception("DUCKMAIL_BEARER 未设置，无法创建临时邮箱")
 
-        chars = string.ascii_lowercase + string.digits
-        email_local = "".join(random.choice(chars) for _ in range(random.randint(8, 13)))
+        email_local = self._generate_local_part(self._humanize_email, alphanumeric_only=True)
         email_addr = f"{email_local}@duckmail.sbs"
         password = generate_password()
 

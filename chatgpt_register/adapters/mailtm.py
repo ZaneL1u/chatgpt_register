@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import random
-import string
 
 from chatgpt_register.adapters.base import EmailAdapter
 from chatgpt_register.config.model import MailTmConfig
@@ -13,9 +12,10 @@ from chatgpt_register.core.utils import generate_password
 class MailTmAdapter(EmailAdapter):
     provider = "mailtm"
 
-    def __init__(self, register, email_config: MailTmConfig):
+    def __init__(self, register, email_config: MailTmConfig, *, humanize_email: bool = True):
         super().__init__(register)
         self.config = email_config
+        self._humanize_email = humanize_email
 
     @property
     def _api_base(self) -> str:
@@ -64,10 +64,7 @@ class MailTmAdapter(EmailAdapter):
         password = generate_password()
 
         for _ in range(5):
-            local = "".join(
-                random.choice(string.ascii_lowercase + string.digits)
-                for _ in range(random.randint(8, 13))
-            )
+            local = self._generate_local_part(self._humanize_email, alphanumeric_only=True)
             email_addr = f"{local}@{domain}"
             res = session.post(
                 f"{self._api_base}/accounts",

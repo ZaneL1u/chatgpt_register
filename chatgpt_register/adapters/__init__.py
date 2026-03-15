@@ -17,19 +17,19 @@ def build_email_adapter(register, config: RegisterConfig) -> EmailAdapter:
         from chatgpt_register.adapters.duckmail import DuckMailAdapter
         if config.email.duckmail is None:
             raise Exception("email_provider=duckmail 但未设置 duckmail 配置节")
-        return DuckMailAdapter(register, config.email.duckmail)
+        return DuckMailAdapter(register, config.email.duckmail, humanize_email=config.email.humanize_email)
 
     if provider == "mailcow":
         from chatgpt_register.adapters.mailcow import MailcowAdapter
         if config.email.mailcow is None:
             raise Exception("email_provider=mailcow 但未设置 mailcow 配置节")
-        return MailcowAdapter(register, config.email.mailcow)
+        return MailcowAdapter(register, config.email.mailcow, humanize_email=config.email.humanize_email)
 
     if provider == "mailtm":
         from chatgpt_register.adapters.mailtm import MailTmAdapter
         if config.email.mailtm is None:
             raise Exception("email_provider=mailtm 但未设置 mailtm 配置节")
-        return MailTmAdapter(register, config.email.mailtm)
+        return MailTmAdapter(register, config.email.mailtm, humanize_email=config.email.humanize_email)
 
     if provider == "catchmail":
         from chatgpt_register.adapters.catchmail import CatchmailAdapter

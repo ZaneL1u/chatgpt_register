@@ -15,3 +15,4 @@ config.json
 codex/config.json
 .env
 .env.*
+output

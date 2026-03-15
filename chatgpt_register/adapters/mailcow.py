@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import email as email_lib
 import imaplib
-import random
-import string
 from email.header import decode_header
 
 from curl_cffi import requests as curl_requests
@@ -153,9 +151,10 @@ def _mailcow_imap_fetch_latest(email_addr: str, password: str, config: MailcowCo
 class MailcowAdapter(EmailAdapter):
     provider = "mailcow"
 
-    def __init__(self, register, email_config: MailcowConfig):
+    def __init__(self, register, email_config: MailcowConfig, *, humanize_email: bool = True):
         super().__init__(register)
         self.config = email_config
+        self._humanize_email = humanize_email
         updates = {}
 
         api_url = self.config.api_url
@@ -184,8 +183,7 @@ class MailcowAdapter(EmailAdapter):
     def create_temp_email(self):
         if not self.config.domain:
             raise Exception("MAILCOW_DOMAIN 未设置")
-        chars = string.ascii_lowercase + string.digits
-        email_local = "".join(random.choice(chars) for _ in range(random.randint(8, 13)))
+        email_local = self._generate_local_part(self._humanize_email, alphanumeric_only=True)
         email_addr = f"{email_local}@{self.config.domain}"
         password = generate_password()
         _mailcow_create_mailbox(email_addr, password, self.config)

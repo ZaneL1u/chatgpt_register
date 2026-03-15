@@ -286,17 +286,12 @@ def run_batch(config: RegisterConfig):
                         ok, email, err = future.result()
                         if ok:
                             success_count += 1
-                            if dashboard is not None:
-                                dashboard.add_result(True)
                         else:
                             fail_count += 1
-                            if dashboard is not None:
-                                dashboard.add_result(False)
                             print(f"  [账号 {idx}] 失败: {err}")
                     except Exception as e:
                         fail_count += 1
                         if dashboard is not None:
-                            dashboard.add_result(False)
                             dashboard.complete_worker(idx, False, status=f"线程异常: {e}")
                         with _print_lock:
                             print(f"[FAIL] 账号 {idx} 线程异常: {e}")

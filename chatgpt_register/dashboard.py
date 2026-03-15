@@ -133,6 +133,11 @@ class RuntimeDashboard:
                 item["result"] = "成功" if ok else "失败"
                 if status:
                     item["status"] = sanitize_status_text(status)
+            # 实时更新成功/失败计数
+            if ok:
+                self.success_count += 1
+            else:
+                self.fail_count += 1
             self._refresh()
 
     def add_result(self, ok: bool):

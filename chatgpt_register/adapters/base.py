@@ -25,14 +25,18 @@ class EmailAdapter:
             cls._prefix_generator = HumanizedPrefixGenerator()
         return cls._prefix_generator
 
-    def _generate_local_part(self, humanize: bool) -> str:
+    def _generate_local_part(self, humanize: bool, *, alphanumeric_only: bool = False) -> str:
         """生成邮箱本地部分（@ 前缀）。
 
         Args:
             humanize: 是否使用拟人化格式。True 使用人名格式，False 使用随机字符串。
+            alphanumeric_only: 为 True 时去掉 `.` 和 `_`，适用于不接受特殊字符的 API 型邮箱服务。
         """
         if humanize:
-            return self._get_prefix_generator().generate()
+            prefix = self._get_prefix_generator().generate()
+            if alphanumeric_only:
+                prefix = prefix.replace(".", "").replace("_", "")
+            return prefix
         return "".join(
             random.choice(string.ascii_lowercase + string.digits)
             for _ in range(random.randint(8, 13))
