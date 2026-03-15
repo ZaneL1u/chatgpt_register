@@ -110,8 +110,10 @@ def random_chrome_version() -> BrowserProfile:
     )
 
 
-def random_delay(low: float = 0.3, high: float = 1.0) -> None:
-    time.sleep(random.uniform(low, high))
+def random_delay(mean: float = 0.5, std: float = 0.15, min_bound: float = 0.2) -> None:
+    """正态分布延迟，clamp 到 min_bound 下限。"""
+    delay = max(min_bound, random.gauss(mean, std))
+    time.sleep(delay)
 
 
 def make_trace_headers() -> dict[str, str]:

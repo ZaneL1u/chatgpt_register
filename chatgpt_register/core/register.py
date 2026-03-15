@@ -58,7 +58,12 @@ class ChatGPTRegister:
         self.file_lock = file_lock or threading.Lock()
         self.device_id = str(uuid.uuid4())
         self.auth_session_logging_id = str(uuid.uuid4())
-        self.impersonate, self.chrome_major, self.chrome_full, self.ua, self.sec_ch_ua = random_chrome_version()
+        bp = random_chrome_version()
+        self.impersonate = bp.impersonate
+        self.chrome_major = bp.chrome_major
+        self.chrome_full = bp.chrome_full
+        self.ua = bp.user_agent
+        self.sec_ch_ua = bp.sec_ch_ua
 
         self.session = curl_requests.Session(impersonate=self.impersonate)
 
@@ -284,15 +289,15 @@ class ChatGPTRegister:
 
     def run_register(self, email, password, name, birthdate, mail_token):
         self.visit_homepage()
-        random_delay(0.3, 0.8)
+        random_delay(0.5, 0.15, 0.2)  # 普通步骤
         csrf = self.get_csrf()
-        random_delay(0.2, 0.5)
+        random_delay(0.3, 0.1, 0.1)  # 微延迟
         auth_url = self.signin(email, csrf)
-        random_delay(0.3, 0.8)
+        random_delay(0.5, 0.15, 0.2)  # 普通步骤
 
         final_url = self.authorize(auth_url)
         final_path = urlparse(final_url).path
-        random_delay(0.3, 0.8)
+        random_delay(0.5, 0.15, 0.2)  # 普通步骤
 
         self._print(f"Authorize -> {final_path}")
 
@@ -300,11 +305,11 @@ class ChatGPTRegister:
 
         if "create-account/password" in final_path:
             self._print("全新注册流程")
-            random_delay(0.5, 1.0)
+            random_delay(0.5, 0.15, 0.2)  # 普通步骤
             status, data = self.register(email, password)
             if status != 200:
                 raise Exception(f"Register 失败 ({status}): {data}")
-            random_delay(0.3, 0.8)
+            random_delay(0.5, 0.15, 0.2)  # 普通步骤
             self.send_otp()
             need_otp = True
         elif "email-verification" in final_path or "email-otp" in final_path:
@@ -312,9 +317,9 @@ class ChatGPTRegister:
             need_otp = True
         elif "about-you" in final_path:
             self._print("跳到填写信息阶段")
-            random_delay(0.5, 1.0)
+            random_delay(0.5, 0.15, 0.2)  # 普通步骤
             self.create_account(name, birthdate)
-            random_delay(0.3, 0.5)
+            random_delay(0.3, 0.1, 0.1)  # 微延迟
             self.callback()
             return True
         elif "callback" in final_path or "chatgpt.com" in final_url:
@@ -331,25 +336,25 @@ class ChatGPTRegister:
             if not otp_code:
                 raise Exception("未能获取验证码")
 
-            random_delay(0.3, 0.8)
+            random_delay(0.5, 0.15, 0.2)  # 普通步骤
             status, data = self.validate_otp(otp_code)
             if status != 200:
                 self._print("验证码失败，重试...")
                 self.send_otp()
-                random_delay(1.0, 2.0)
+                random_delay(1.5, 0.4, 0.5)  # 高延迟：OTP 重试
                 otp_code = self.wait_for_verification_email(mail_token, timeout=60)
                 if not otp_code:
                     raise Exception("重试后仍未获取验证码")
-                random_delay(0.3, 0.8)
+                random_delay(0.5, 0.15, 0.2)  # 普通步骤
                 status, data = self.validate_otp(otp_code)
                 if status != 200:
                     raise Exception(f"验证码失败 ({status}): {data}")
 
-        random_delay(0.5, 1.5)
+        random_delay(1.5, 0.4, 0.5)  # 高延迟：OTP 验证后
         status, data = self.create_account(name, birthdate)
         if status != 200:
             raise Exception(f"Create account 失败 ({status}): {data}")
-        random_delay(0.2, 0.5)
+        random_delay(0.3, 0.1, 0.1)  # 微延迟
         self.callback()
         return True
 

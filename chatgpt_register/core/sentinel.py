@@ -16,12 +16,10 @@ class SentinelTokenGenerator:
     ERROR_PREFIX = "wQ8Lk5FbGpA2NcR9dShT6gYjU7VxZ4D"
 
     def __init__(self, device_id=None, user_agent=None):
+        if user_agent is None:
+            raise ValueError("user_agent is required — use BrowserProfile.user_agent")
         self.device_id = device_id or str(uuid.uuid4())
-        self.user_agent = user_agent or (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/145.0.0.0 Safari/537.36"
-        )
+        self.user_agent = user_agent
         self.requirements_seed = str(random.random())
         self.sid = str(uuid.uuid4())
 
@@ -125,8 +123,8 @@ def fetch_sentinel_challenge(session, device_id, flow="authorize_continue", user
         "Content-Type": "text/plain;charset=UTF-8",
         "Referer": "https://sentinel.openai.com/backend-api/sentinel/frame.html",
         "Origin": "https://sentinel.openai.com",
-        "User-Agent": user_agent or "Mozilla/5.0",
-        "sec-ch-ua": sec_ch_ua or '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+        "User-Agent": user_agent or "",
+        "sec-ch-ua": sec_ch_ua or "",
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"Windows"',
     }
